@@ -1,0 +1,26 @@
+# pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118
+# pip install torch-geometric
+# pip install -r requirements.txt
+
+numpy
+pandas
+matplotlib
+seaborn
+scikit-learn
+
+kagglehub
+plotly
+py3Dmol
+itables
+
+rdkit-pypi
+
+torch
+torchvision
+torchaudio
+torch-geometric
+
+optuna
+tqdm
+
+
