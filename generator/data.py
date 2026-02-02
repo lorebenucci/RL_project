@@ -63,33 +63,64 @@ class ChemicalActionSpace:
         self.atom_types = ['O', 'N', 'F', 'Cl', 'C'] 
         self.bond_types = [Chem.BondType.SINGLE, Chem.BondType.DOUBLE]
         self.num_actions = 8 
+        self.max_valence = {'C': 4, 'N': 3, 'O': 2, 'F': 1, 'Cl': 1, 'S': 6}
+
+    def _get_available_atoms(self, mol):
+        """
+        FIX: Controlliamo solo la Valenza Esplicita.
+        Se un atomo ha legami espliciti < max, possiamo aggiungere legami
+        (sostituendo gli H impliciti).
+        """
+        available = []
+        for atom in mol.GetAtoms():
+            symbol = atom.GetSymbol()
+            max_v = self.max_valence.get(symbol, 4)
+            
+           
+            current_v = atom.GetExplicitValence() 
+            
+            if current_v < max_v:
+                available.append(atom.GetIdx())
+        return available
 
     def apply_action(self, mol, action_idx):
         try:
             rw_mol = RWMol(mol)
-        except:
-            return None
-
-        try:
-            num_atoms = rw_mol.GetNumAtoms()
             
+            rw_mol.UpdatePropertyCache(strict=False) 
+            
+            num_atoms = rw_mol.GetNumAtoms()
+            available_indices = self._get_available_atoms(rw_mol)
+
+            # ADD ATOM (0-4)
             if action_idx < 5: 
-                if num_atoms == 0: return None
-                target_idx = np.random.randint(0, num_atoms)
+                if not available_indices: return None
+                target_idx = np.random.choice(available_indices)
                 new_atom_symbol = self.atom_types[action_idx]
                 new_idx = rw_mol.AddAtom(Chem.Atom(new_atom_symbol))
                 rw_mol.AddBond(int(target_idx), int(new_idx), Chem.BondType.SINGLE)
                 
+            # ADD BOND (5-6)
             elif action_idx == 5 or action_idx == 6: 
-                if num_atoms < 2: return None
+                if len(available_indices) < 2: return None
                 for _ in range(20):
-                    idx1, idx2 = np.random.choice(num_atoms, 2, replace=False)
+                    idx1, idx2 = np.random.choice(available_indices, 2, replace=False)
                     if not rw_mol.GetBondBetweenAtoms(int(idx1), int(idx2)):
+                        
+                        if action_idx == 6: 
+                            atom1 = rw_mol.GetAtomWithIdx(int(idx1))
+                            atom2 = rw_mol.GetAtomWithIdx(int(idx2))
+                            
+                            if (atom1.GetExplicitValence() + 1 >= self.max_valence.get(atom1.GetSymbol(), 4)) or \
+                               (atom2.GetExplicitValence() + 1 >= self.max_valence.get(atom2.GetSymbol(), 4)):
+                                continue
+
                         b_type = self.bond_types[action_idx - 5]
                         rw_mol.AddBond(int(idx1), int(idx2), b_type)
                         break
                 else: return None 
                 
+            
             elif action_idx == 7: 
                 if rw_mol.GetNumBonds() == 0: return None
                 bonds = list(rw_mol.GetBonds())
@@ -98,6 +129,7 @@ class ChemicalActionSpace:
                 target_bond = valid_bonds[np.random.randint(0, len(valid_bonds))]
                 rw_mol.RemoveBond(target_bond.GetBeginAtomIdx(), target_bond.GetEndAtomIdx())
 
+            
             if len(Chem.GetMolFrags(rw_mol)) > 1: return None
 
             try:
@@ -110,7 +142,7 @@ class ChemicalActionSpace:
             return None
 
 class MoleculeEnv:
-    def __init__(self, start_smiles, target_class, gnn_model, max_steps=20, alpha=0.3, device='cpu'):
+    def __init__(self, start_smiles, target_class, gnn_model, max_steps=40, alpha=0.3, device='cpu'):
         self.start_smiles_str = start_smiles
         self.target_class_idx = target_class
         self.gnn_model = gnn_model
@@ -160,7 +192,18 @@ class MoleculeEnv:
 
     def step(self, action_idx):
         self.steps += 1
+        
+      
         new_mol = self.action_handler.apply_action(self.current_mol, action_idx)
+        
+        
+        if new_mol is None:
+            
+            for _ in range(50): 
+                random_act = np.random.randint(0, self.action_space_size)
+                new_mol = self.action_handler.apply_action(self.current_mol, random_act)
+                if new_mol is not None:
+                    break
         
         valid = False
         prob_target = 0.5 
@@ -172,37 +215,34 @@ class MoleculeEnv:
         
         similarity = self._calculate_similarity(self.start_mol, self.current_mol)
         
-        reward = -0.01
-
+    
         if not valid:
-            reward -= 0.5
+            reward = -1.0 
         else:
-            reward += 0.1 * similarity
+            # Reward base: 40% progresso predizione + 60% similarità
+            if self.goal_is_toxicity:
+                reward = (0.4 * prob_target) + (0.6 * similarity)
+            else:
+                reward = (0.4 * (1.0 - prob_target)) + (0.6 * similarity)
 
-        success = False
-        flipped = False
-        
-        if valid:
+            # Bonus Flip (Vittoria)
             flipped = (self.goal_is_toxicity and prob_target > 0.5) or \
                       (not self.goal_is_toxicity and prob_target < 0.5)
-        
-        if flipped:
-            success = True
-            reward += 5.0
             
-            if similarity > 0.3:
-                reward += 5.0 
-            if similarity > 0.6:
-                reward += 5.0
+            if flipped:
+                reward += 10.0 # Segnale forte
+                if similarity > 0.3: reward += 5.0
+                if similarity > 0.6: reward += 5.0
 
+        
+        success = valid and flipped
         done = (self.steps >= self.max_steps) or success
         
         info = {
             'valid': valid,
             'similarity': similarity,
             'prob_target': prob_target,
-            'goal_is_toxic': self.goal_is_toxicity,
-            'smiles': Chem.MolToSmiles(self.current_mol) if valid and self.current_mol else ""
+            'smiles': Chem.MolToSmiles(self.current_mol) if valid else ""
         }
         
         return self._get_state(), reward, done, info
