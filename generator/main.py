@@ -39,7 +39,7 @@ def main():
     
     gnn_model.eval()
 
-    start_smiles = "CCCC" 
+    start_smiles = "c1ccccc1" 
     
     print(f"Initializing Environment with Target Class: {TARGET_CLASS}")
     env = MoleculeEnv(start_smiles, 
