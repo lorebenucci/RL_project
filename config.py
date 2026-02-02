@@ -27,11 +27,23 @@ PIN_MEMORY=True
 #--- GNN MODEL CONFIG ---
 
 EPOCHS = 200
-HIDDEN_CHANNELS=128
+HIDDEN_CHANNELS=128 #number of channels 
 NUM_CLASSES=12
 NODE_FEATURES=56
 DROPOUT=0.29239999526259247
 LR =  0.00012892223135435807
 WEIGHT_DECAY = 0.0004062781901413316
-
+# ------------------------
 # --- RL AGENT CONFIG
+GAMMA= 0.99 #discount factor
+BATCH_SIZE_RL_AGENT=32 
+LR_GENERATOR=1e-4
+
+MEMORY_SIZE= 5000 # Replay buffer
+MAX_STEPS =10 # number of possible modifies for each episode
+EPSILON_START =1.0 # Initial exploration (max exploration)
+EPSILON_MIN = 0.05 # Final exploration 
+EPSILON_DECAY = 0.995  #epsilon decay 
+
+# ---------------------------
+
