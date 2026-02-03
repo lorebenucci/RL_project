@@ -59,7 +59,7 @@ def mol_to_graph_data(mol, device='cpu'):
     except:
         return None, None
 
-# --- 2. ACTION SPACE INTELLIGENTE ---
+# --- 2. ACTION SPACE  ---
 class ChemicalActionSpace:
     def __init__(self):
         self.atom_types = ['O', 'N', 'F', 'Cl', 'C'] 
@@ -136,6 +136,7 @@ class ChemicalActionSpace:
 
 # --- 3. ENVIRONMENT RIGOROSO ---
 class MoleculeEnv:
+
     def __init__(self, start_smiles, target_class, gnn_model, max_steps=20, alpha=0.3, device='cpu'):
         self.start_smiles_str = start_smiles
         self.target_class_idx = target_class
@@ -156,38 +157,54 @@ class MoleculeEnv:
             initial_prob = self._get_gnn_prob(self.start_mol)
             self.goal_is_toxicity = (initial_prob < 0.5)
 
+
+
     def _get_gnn_prob(self, mol):
+
         if self.gnn_model is None or mol is None: return 0.5
         x, edge_index = mol_to_graph_data(mol, self.device)
+
         if x is None: return 0.5
         batch_vec = torch.zeros(x.shape[0], dtype=torch.long, device=self.device)
         self.gnn_model.eval()
+
         with torch.no_grad():
             logits = self.gnn_model(x, edge_index, batch_vec)
             probs = torch.sigmoid(logits)
             return probs[0, self.target_class_idx].item()
+            # reward 12 x 1 --> provare con global tossicity + multiclass 
+            # combinazioen pesata delle reward.
+
+
 
     def reset(self, specific_smiles=None):
+
         smiles = specific_smiles if specific_smiles else self.start_smiles_str
         self.start_mol = Chem.MolFromSmiles(smiles)
         self.current_mol = Chem.MolFromSmiles(smiles)
         self.steps = 0
+
         if self.start_mol:
             initial_prob = self._get_gnn_prob(self.start_mol)
             self.goal_is_toxicity = (initial_prob < 0.5)
         return self._get_state()
 
+
+
     def _get_state(self):
+
         try:
             fp = AllChem.GetMorganFingerprintAsBitVect(self.current_mol, 2, nBits=2048)
             return np.array(fp)
         except:
             return np.zeros(2048)
 
+
+
     def step(self, action_idx):
         self.steps += 1
         
-        # 1. APPLICAZIONE DIRETTA (NESSUN SALVAGENTE RANDOM)
+        # 1. APPLICAZIONE DIRETTA AZIONE
         new_mol = self.action_handler.apply_action(self.current_mol, action_idx)
         
         valid = False
@@ -200,6 +217,8 @@ class MoleculeEnv:
         
         similarity = self._calculate_similarity(self.start_mol, self.current_mol)
         
+
+
         # 2. REWARD SYSTEM
         if not valid:
             reward = -0.5 # Penalità leggera per incoraggiare riprova
@@ -209,7 +228,7 @@ class MoleculeEnv:
             else:
                 reward = (0.4 * (1.0 - prob_target)) + (0.6 * similarity)
 
-            # BONUS VITTORIA MASSICCIO
+            # BONUS VITTORIA
             flipped = (self.goal_is_toxicity and prob_target > 0.5) or \
                       (not self.goal_is_toxicity and prob_target < 0.5)
             
@@ -232,9 +251,11 @@ class MoleculeEnv:
         return self._get_state(), reward, done, info
 
     def _calculate_similarity(self, mol1, mol2):
+
         try:
             fp1 = AllChem.GetMorganFingerprintAsBitVect(mol1, 2, nBits=2048)
             fp2 = AllChem.GetMorganFingerprintAsBitVect(mol2, 2, nBits=2048)
             return DataStructs.TanimotoSimilarity(fp1, fp2)
+        # add cosine similarity.
         except:
             return 0.0

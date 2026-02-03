@@ -80,7 +80,7 @@ def train_agent(env, episodes=1000, batch_size=64, lr=1e-3, device='cpu'):
             else:
                 with torch.no_grad():
                     state_tensor = torch.FloatTensor(state).unsqueeze(0).to(device)
-                    action = policy_net(state_tensor).argmax().item()
+                    action = policy_net(state_tensor).argmax(dim = 1).item()
             
             next_state, reward, done, info = env.step(action)
             memory.push(state, action, reward, next_state, done)
@@ -98,11 +98,18 @@ def train_agent(env, episodes=1000, batch_size=64, lr=1e-3, device='cpu'):
                 dones = torch.FloatTensor(dones).unsqueeze(1).to(device)
                 
                 curr_Q = policy_net(states).gather(1, actions)
-                next_Q = target_net(next_states).max(1)[0].unsqueeze(1)
-                expected_Q = rewards + (1 - dones) * gamma * next_Q
-                
+                #next_Q = target_net(next_states).max(1)[0].unsqueeze(1)
+                #expected_Q = rewards + (1 - dones) * gamma * next_Q
+
+                with torch.no_grad():
+
+                    next_actions = policy_net(next_states).argmax(dim=1, keepdim=True)   # selezione azione
+                    next_Q = target_net(next_states).gather(1, next_actions)            # valutazione
+                    expected_Q = rewards + (1 - dones) * gamma * next_Q
+
+
                 loss = F.mse_loss(curr_Q, expected_Q)
-                
+
                 optimizer.zero_grad()
                 loss.backward()
                 optimizer.step()
