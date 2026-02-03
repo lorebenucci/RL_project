@@ -63,7 +63,7 @@ def train_agent(env, episodes=1000, batch_size=64, lr=1e-3, device='cpu'):
     memory = ReplayBuffer(10000)
     
     epsilon = 1.0
-    epsilon_decay = 0.995
+    epsilon_decay = 0.999
     epsilon_min = 0.05
     gamma = 0.99
     
