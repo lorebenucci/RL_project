@@ -28,6 +28,10 @@ STEREO_LIST = [
         Chem.rdchem.BondStereo.STEREOCIS,
         Chem.rdchem.BondStereo.STEREOTRANS
     ]
+FORMAL_CHARGES = [-2, -1, 0, 1, 2]
+CHIRALITY_LIST = ['R', 'S', 'None']
+
+
 TRAIN_PERCENTAGE=0.7
 VAL_PERCENTAGE=0.15
 TEST_PERCENTAGE=0.15
@@ -46,16 +50,35 @@ DROPOUT=0.41573689676626024
 LR =0.006153085601625313
 WEIGHT_DECAY = 0.00026568139241144923
 # ------------------------
+NUM_GLOBAL_FEATURES=2
+
+
+
 # --- RL AGENT CONFIG
 GAMMA= 0.99 #discount factor
-BATCH_SIZE_RL_AGENT=32 
-LR_GENERATOR=1e-4
+BATCH_SIZE_RL_AGENT=64 
+LR_GENERATOR= 5e-4
 
-MEMORY_SIZE= 5000 # Replay buffer
+EPOCHS_AGENT = 2000
+MEMORY_SIZE_BUFFER= 10000 # Replay buffer
 MAX_STEPS =10 # number of possible modifies for each episode
+DIM_DESCRIPTORS=2048
+
+TAU_START=0.005
+TAU_MIN=0.001
+TAU_DECAY=0.995
+ALPHA=0.6
+
+
 EPSILON_START =1.0 # Initial exploration (max exploration)
 EPSILON_MIN = 0.05 # Final exploration 
 EPSILON_DECAY = 0.995  #epsilon decay 
 
-# ---------------------------
+#----------------------------
 
+# ---------------------------
+#Measurement for MW AND LOGP
+MEAN_MW=276.1441553893223
+STD_MW=164.73235552463632
+MEAN_LOGP=2.373942812220377
+STD_LOGP=2.3043073032948307
