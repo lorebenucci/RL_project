@@ -28,6 +28,8 @@ class WeightedReplayBuffer:
         self.buffer = deque(maxlen=capacity)
         self.rewards = deque(maxlen=capacity)
         self.alpha = alpha
+        self.beta=0.4
+        self.beta_increment=0.005
 
     # METODO AGGIUNTO: Permette di usare len(memory)
     def __len__(self):
@@ -41,9 +43,19 @@ class WeightedReplayBuffer:
         weights = (np.abs(self.rewards) + 1e-5) ** self.alpha
         probs = weights / weights.sum()
         indices = np.random.choice(len(self.buffer), batch_size, p=probs, replace=False)
+        
+        # 3. Importance Sampling Weights (Correzione del Bias)
+        # w_i = (N * P(i)) ^ -beta
+        total = len(self.buffer)
+        weights = (total * probs[indices]) ** (-self.beta)
+        weights /= weights.max() # Normalizza a 1 max
+        
+        # Incrementa beta (annealing verso 1.0)
+        self.beta = min(1.0, self.beta + self.beta_increment)
+        
         batch = [self.buffer[i] for i in indices]
         s, a, r, ns, d = zip(*batch)
-        return np.array(s), a, r, np.array(ns), d
+        return np.array(s), a, r, np.array(ns), d, weights
 
 def train_agent(env, smiles_list, episodes=1000, batch_size=64, lr=1e-4, device='cpu', path="checkpoint.pth"):
     policy_net = DuelingDQN(LATENT_DIM, env.action_space_size).to(device)
@@ -72,18 +84,19 @@ def train_agent(env, smiles_list, episodes=1000, batch_size=64, lr=1e-4, device=
             memory.push(state, action, reward, next_state, done)
             
             # Oversampling per successi (MEG logic)
-            if done and info.get('flipped', False):
-                for _ in range(5): memory.push(state, action, reward, next_state, done)
+           # if done and info.get('flipped', False):
+            #    for _ in range(5): memory.push(state, action, reward, next_state, done)
             
             state, total_reward = next_state, total_reward + reward
 
             if len(memory) > batch_size:
-                s, a, r, ns, d = memory.sample(batch_size)
+                s, a, r, ns, d, weights = memory.sample(batch_size)
                 s_t, ns_t = torch.FloatTensor(s).to(device), torch.FloatTensor(ns).to(device)
                 a_t = torch.LongTensor(a).view(-1, 1).to(device)
                 r_t = torch.FloatTensor(r).view(-1, 1).to(device)
                 d_t = torch.FloatTensor(d).view(-1, 1).to(device)
-
+                weights_tensor = torch.FloatTensor(weights).to(device).unsqueeze(1)
+                
                 # Double DQN logic
                 curr_Q = policy_net(s_t).gather(1, a_t)
                 with torch.no_grad():
@@ -92,6 +105,8 @@ def train_agent(env, smiles_list, episodes=1000, batch_size=64, lr=1e-4, device=
                     expected_Q = r_t + (1 - d_t) * 0.99 * next_Q
 
                 loss = F.smooth_l1_loss(curr_Q, expected_Q)
+                loss = (loss * weights_tensor).mean()
+                
                 optimizer.zero_grad()
                 loss.backward()
                 torch.nn.utils.clip_grad_norm_(policy_net.parameters(), 1.0)

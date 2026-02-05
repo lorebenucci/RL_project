@@ -127,7 +127,7 @@ class MoleculeEnv:
 
     def step(self, action):
         self.steps += 1
-        reward = -0.2 
+        reward = -1.0
         new_mol = self.action_space.apply_action(self.current_mol, action)
         
         # 1. Azione non applicabile o errore chimico
@@ -177,10 +177,19 @@ class MoleculeEnv:
             has_flipped = (not curr_toxic) if self.start_is_toxic else curr_toxic
             done = False
             if has_flipped:
-                reward += (100.0 * hybrid_sim) if hybrid_sim >= self.threshold else 40.0
+                
+                if hybrid_sim >= self.threshold:
+                    reward += (100.0 * hybrid_sim) + 60.0 
+                    if self.steps <= 6: # Bonus extra per efficienza (pochi step)  #add this
+                        reward += 30.0
+                else: 
+                    reward += 20.0
+                
+                
                 info['flipped'] = True
                 done = True
             else: 
+                #reward += 10.0 #add this 
                 done = (self.steps >= self.max_steps)
 
             return self._get_state_from_embedding(curr_emb), reward, done, info
