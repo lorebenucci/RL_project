@@ -18,12 +18,12 @@ class DuelingDQN(nn.Module):
             nn.Linear(input_dim, hidden_dim*2),  #Step 1:
             nn.LayerNorm(hidden_dim*2), #LayerNorm is more stable than BatchNorm
             nn.SiLU(), #better approach of SiLU
-            nn.Dropout(0.2), #light Dropout
+            #nn.Dropout(0.2), #light Dropout
             
             nn.Linear(hidden_dim*2, hidden_dim), #Step 2: Compressione a 512
             nn.LayerNorm(hidden_dim),
             nn.SiLU(), 
-            nn.Dropout(0.2)
+            #nn.Dropout(0.2)
         )
         
         # Value stream (it evaluates how much a state is good )
@@ -83,8 +83,17 @@ class WeightedReplayBuffer:
         # add epsilon (1e-5) to guarantee also reward=0 has a possibility of being exctact
         curr_len = len(self.buffer)
         rewards_arr = np.array(self.rewards)
-        weights=(np.abs(rewards_arr) + 1e-5) ** self.alpha
         
+        
+        
+        #weights=(np.abs(rewards_arr) + 1e-5) ** self.alpha
+        
+        weights = np.abs(rewards_arr) +1e-5
+        
+        weights = np.where(rewards_arr > 50, weights * 10.0, weights)
+        
+        
+        weights = (weights) ** self.alpha
         # Normalization to obtain probability:
         probs=weights / weights.sum()
         
@@ -95,10 +104,12 @@ class WeightedReplayBuffer:
         batch=[self.buffer[i] for i in indices]
         
         state, action, reward, next_state, done = zip(*batch)
+       
+       
         return np.array(state), action, reward, np.array(next_state), done
         
         
-def train_agent(env,train_smiles_list, episodes=1000, batch_size=64, lr=1e-3, device='cpu'):
+def train_agent(env,train_smiles_list, episodes=1000, batch_size=64, lr=1e-3, device='cpu',path="checkpoint.pth"):
     
     output_dim = env.action_space_size
     
@@ -109,7 +120,7 @@ def train_agent(env,train_smiles_list, episodes=1000, batch_size=64, lr=1e-3, de
     
     optimizer = optim.Adam(policy_net.parameters(), lr=lr)
     memory = WeightedReplayBuffer(MEMORY_SIZE_BUFFER,ALPHA)
-    
+    best_avg_reward=-float("inf")
     epsilon = EPSILON_START
     epsilon_decay = EPSILON_DECAY
     epsilon_min = EPSILON_MIN
@@ -145,6 +156,13 @@ def train_agent(env,train_smiles_list, episodes=1000, batch_size=64, lr=1e-3, de
             next_state, reward, done, info = env.step(action)
             memory.push(state, action, reward, next_state, done)
             
+            
+            #oversampling if there is a flipped molecule(next state)
+            if done and info.get('flipped', False):
+                if info.get('sim', 0) >= 0.4:
+                    for _ in range(10):
+                        memory.push(state, action, reward, next_state, done) # we repeat this 5 times
+                        
             state = next_state
             total_reward += reward
             
@@ -187,6 +205,7 @@ def train_agent(env,train_smiles_list, episodes=1000, batch_size=64, lr=1e-3, de
                 #SOFT UPDATE del Target Network because otherwise this can provoke numerical instability
                 for target_param, local_param in zip(target_net.parameters(), policy_net.parameters()):
                     target_param.data.copy_(tau*local_param.data + (1.0-tau)*target_param.data)
+                #target_net.load_state_dict(policy_net.state_dict())
             
         #epsilon and tau decay
         epsilon = max(epsilon_min, epsilon * epsilon_decay)
@@ -199,7 +218,11 @@ def train_agent(env,train_smiles_list, episodes=1000, batch_size=64, lr=1e-3, de
         if ep % 10 == 0:
             #last mean reward of 10 episodes
             avg_rew = np.mean(reward_history[-10:])
-            #target_net.load_state_dict(policy_net.state_dict())
+            
+            if ep > 100 and avg_rew > best_avg_reward:
+                best_avg_reward = avg_rew
+                torch.save(policy_net.state_dict(), path)
+                print(f"  --> New Best Agent Saved! (Reward: {best_avg_reward:.2f})")
             print(f"Ep {ep} | Avg Reward: {avg_rew:.2f} | Eps: {epsilon:.2f} | Last Info: {info['direction'] if 'direction' in info else ''}")
 
     return policy_net

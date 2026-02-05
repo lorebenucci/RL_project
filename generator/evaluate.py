@@ -23,7 +23,7 @@ def evaluate_model(agent, env, test_smiles_list, device='cpu',verbose=True):
         
         #count how many molecule we are analyzing
         stats['total'] += 1
-        print(f"\nTarget Molecule: {start_smiles}")
+        #print(f"\nTarget Molecule: {start_smiles}")
         
         # Reset Environment
         state = env.reset(specific_smiles=start_smiles)
@@ -33,7 +33,7 @@ def evaluate_model(agent, env, test_smiles_list, device='cpu',verbose=True):
         active_indices = [i for i, p in enumerate(start_probs) if p > 0.5]
         
         status_str = "TOXIC" if start_toxic else "SAFE"
-        print(f"Initial Status: {status_str} (Active Classes: {active_indices})")
+        #print(f"Initial Status: {status_str} (Active Classes: {active_indices})")
         
         done = False
         trajectory = [start_smiles]
@@ -92,9 +92,9 @@ def evaluate_model(agent, env, test_smiles_list, device='cpu',verbose=True):
                 if has_flipped and is_similar: res_type = "SUCCESS (Strict)"
                 elif has_flipped: res_type = "PARTIAL (Flip but Low Sim)"
                 
-                print(f"Result: {res_type}")
-                print(f"Final Sim: {final_sim:.2f} | Steps: {step_count}")
-                print(f"Trajectory: {' -> '.join(trajectory)}")
+                #print(f"Result: {res_type}")
+                #print(f"Final Sim: {final_sim:.2f} | Steps: {step_count}")
+                #print(f"Trajectory: {' -> '.join(trajectory)}")
                     
         else:
             if verbose: print("Result: INVALID MOLECULE")    

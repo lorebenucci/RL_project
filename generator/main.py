@@ -1,6 +1,22 @@
 import torch
 import os
 import numpy as np
+import random
+
+
+def set_seed(seed):
+    random.seed(seed)
+    os.environ['PYTHONHASHSEED'] = str(seed)
+    
+    # 2. Numpy
+    np.random.seed(seed)
+    
+    # 3. PyTorch
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed(seed)
+    
+set_seed(42)
+
 from rdkit import Chem, RDLogger
 from Molecule_env_actions import *
 from train import train_agent
@@ -12,7 +28,8 @@ import pandas as pd
 from sklearn.model_selection import train_test_split
 
 # Disabilita i log di warning di RDKit
-RDLogger.DisableLog('rdApp.warning')
+#RDLogger.DisableLog('rdApp.warning')
+RDLogger.DisableLog('rdApp.*')
 
 def main():
    
@@ -64,24 +81,31 @@ def main():
     #start_smiles = "c1ccccc1" 
 
     print(f"Initializing Environment for: {train_smiles}")
-    env = MoleculeEnv(gnn_model=gnn_model,max_steps=5,device=DEVICE)
+    env = MoleculeEnv(gnn_model=gnn_model,threshold=0.4,max_steps=MAX_STEPS,device=DEVICE)
 
+    path="best_agent_checkpoint.pth"
     # --- TRAINING LOOP ---
     print(f"Starting Training for {EPOCHS_AGENT} episodes...")
-    trained_agent = train_agent(env,train_smiles_list=train_smiles, episodes=EPOCHS_AGENT,batch_size=BATCH_SIZE_RL_AGENT, lr=LR_GENERATOR, device=DEVICE)
+    trained_agent = train_agent(env,train_smiles_list=train_smiles, episodes=EPOCHS_AGENT,batch_size=BATCH_SIZE_RL_AGENT, lr=LR_GENERATOR, device=DEVICE,path = path)
 
     # --- SALVATAGGIO ---
-    save_path = "dueling_dqn_agent_multitask.pth"
-    torch.save(trained_agent.state_dict(), save_path)
-    print(f"Agent saved to {save_path}")
+    #save_path = "dueling_dqn_agent_multitask.pth"
+    #torch.save(trained_agent.state_dict(), save_path)
+   # print(f"Agent saved to {save_path}")
     
     
-    trained_agent = DuelingDQN(input_dim=DIM_DESCRIPTORS, output_dim=env.action_space_size).to(DEVICE)
-    trained_agent.load_state_dict(torch.load(save_path))
+    if os.path.exists(path):
+        print(f"Loading Best Agent from {path} for evaluation...")
+        # Qui ha senso creare una nuova istanza perché vuoi caricare i pesi migliori,
+        # non usare quelli dell'ultimo step che hai in memoria.
+        best_agent = DuelingDQN(input_dim=DIM_DESCRIPTORS, output_dim=env.action_space_size).to(DEVICE)
+        best_agent.load_state_dict(torch.load(path))
+        stats = evaluate_model(best_agent, env, test_smiles, device=DEVICE)
+    else:
+        trained_agent = DuelingDQN(input_dim=DIM_DESCRIPTORS, output_dim=env.action_space_size).to(DEVICE)
+        trained_agent.load_state_dict(torch.load(path))
 
-    # --- VALUTAZIONE ---
-    #test_molecules = ["c1ccccc1", "CCO", "Clc1ccccc1", "CC1=CC=C(C=C1)O"]
-    stats=evaluate_model(trained_agent, env, test_smiles, device=DEVICE)
+        stats=evaluate_model(trained_agent, env, test_smiles, device=DEVICE)
     
     
 

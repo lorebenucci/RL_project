@@ -3,6 +3,7 @@ import numpy as np
 import os
 import sys
 
+
 # 1. Ottieni il percorso assoluto della cartella corrente (generator)
 current_dir = os.path.dirname(os.path.abspath(__file__))
 
@@ -85,6 +86,8 @@ def mol_to_graph_data(mol, device='cpu'):
             
             atom_features_list.append(torch.tensor(feature, dtype=torch.float))
         
+        if not atom_features_list:
+            return None, None, None
         x = torch.stack(atom_features_list).to(device)
         
         # --- EDGE FEATURES ---
@@ -103,8 +106,12 @@ def mol_to_graph_data(mol, device='cpu'):
             
             edge_feats.extend([torch.tensor(b_feat, dtype=torch.float)] * 2)
             
-        edge_index = torch.tensor([rows, cols], dtype=torch.long, device=device)
-        edge_attr = torch.stack(edge_feats).to(device)
+        if len(rows) == 0:
+            edge_index = torch.empty((2, 0), dtype=torch.long, device=device)
+            edge_attr = torch.empty((0, 11), dtype=torch.float, device=device)
+        else:
+            edge_index = torch.tensor([rows, cols], dtype=torch.long, device=device)
+            edge_attr = torch.stack(edge_feats).to(device)
         
         return x, edge_index, edge_attr
 

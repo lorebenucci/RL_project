@@ -52,15 +52,16 @@ WEIGHT_DECAY = 0.00026568139241144923
 # ------------------------
 NUM_GLOBAL_FEATURES=2
 
+LATENT_DIM = (HIDDEN_CHANNELS * 5 * 2) + NUM_GLOBAL_FEATURES
 
 
 # --- RL AGENT CONFIG
 GAMMA= 0.99 #discount factor
-BATCH_SIZE_RL_AGENT=64 
-LR_GENERATOR= 5e-4
+BATCH_SIZE_RL_AGENT=128
+LR_GENERATOR= 3e-4
 
-EPOCHS_AGENT = 2000
-MEMORY_SIZE_BUFFER= 10000 # Replay buffer
+EPOCHS_AGENT = 3000
+MEMORY_SIZE_BUFFER= 20000 # Replay buffer
 MAX_STEPS =10 # number of possible modifies for each episode
 DIM_DESCRIPTORS=2048
 
@@ -72,7 +73,7 @@ ALPHA=0.6
 
 EPSILON_START =1.0 # Initial exploration (max exploration)
 EPSILON_MIN = 0.05 # Final exploration 
-EPSILON_DECAY = 0.995  #epsilon decay 
+EPSILON_DECAY = 0.9985  #epsilon decay 
 
 #----------------------------
 
