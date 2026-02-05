@@ -127,7 +127,14 @@ class MoleculeEnv:
 
     def step(self, action):
         self.steps += 1
-        reward = -1.0
+        #reward = -1.0
+        if self.steps <= 2:
+            reward = -0.5
+        elif self.steps <= 5:
+            reward = -1.5
+        else:
+            reward = -3.0
+            
         new_mol = self.action_space.apply_action(self.current_mol, action)
         
         # 1. Azione non applicabile o errore chimico
@@ -149,7 +156,7 @@ class MoleculeEnv:
             tanimoto = DataStructs.TanimotoSimilarity(fp_s, fp_c)
             curr_probs, curr_toxic, curr_emb = self._get_toxicity(self.current_mol)
             cosine = torch.nn.functional.cosine_similarity(self.start_embedding, curr_emb).item()
-            hybrid_sim = 0.7 * tanimoto + 0.3 * cosine 
+            hybrid_sim = 0.7 * tanimoto + 0.3  * cosine 
 
             # Pre-costruzione del dizionario info per garantire coerenza
             info = {
@@ -169,6 +176,12 @@ class MoleculeEnv:
             if hybrid_sim < self.threshold - 0.15: 
                 return self._get_state_from_embedding(curr_emb), -5.0, True, info
 
+            # SOFT PENALTY:
+            if hybrid_sim < self.threshold:
+                # Più ti allontani dall'originale, più paghi a ogni step.
+                # Esempio: Sim 0.35 (soglia 0.4) -> Malus -0.5
+                reward -= (self.threshold - hybrid_sim) * 10.0
+            
             # 5. Calcolo Reward del Gradiente
             delta_tox = (np.max(curr_probs) - self.start_max_prob) * self.direction
             reward += (delta_tox * 40.0) if delta_tox > 0 else (delta_tox * 10.0)
@@ -180,8 +193,10 @@ class MoleculeEnv:
                 
                 if hybrid_sim >= self.threshold:
                     reward += (100.0 * hybrid_sim) + 60.0 
-                    if self.steps <= 6: # Bonus extra per efficienza (pochi step)  #add this
-                        reward += 30.0
+                    
+                    # BONUS EFFICIENZA CONTINUO
+                    steps_saved = self.max_steps - self.steps
+                    reward += steps_saved * 2.0
                 else: 
                     reward += 20.0
                 
