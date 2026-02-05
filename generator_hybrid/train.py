@@ -10,219 +10,106 @@ from config import *
 class DuelingDQN(nn.Module):
     def __init__(self, input_dim, output_dim, hidden_dim=1024):
         super(DuelingDQN, self).__init__()
-        
-        #feature extractor "pyramid" NN
-        # we keep more amplitude to combine all bit descriptors
         self.feature_layer = nn.Sequential(
-            
-            nn.Linear(input_dim, hidden_dim*2),  #Step 1:
-            nn.LayerNorm(hidden_dim*2), #LayerNorm is more stable than BatchNorm
-            nn.SiLU(), #better approach of SiLU
-            #nn.Dropout(0.2), #light Dropout
-            
-            nn.Linear(hidden_dim*2, hidden_dim), #Step 2: Compressione a 512
-            nn.LayerNorm(hidden_dim),
-            nn.SiLU(), 
-            #nn.Dropout(0.2)
+            nn.Linear(input_dim, hidden_dim), nn.LayerNorm(hidden_dim), nn.SiLU(),
+            nn.Linear(hidden_dim, hidden_dim // 2), nn.LayerNorm(hidden_dim // 2), nn.SiLU()
         )
-        
-        # Value stream (it evaluates how much a state is good )
-        self.value_stream = nn.Sequential(
-            nn.Linear(hidden_dim, hidden_dim // 2),
-            nn.SiLU(),
-            nn.Linear(hidden_dim // 2 , 1)
-        )
-        
-        #Advantage Stream (it evaluates the goodness of action)
-        self.advantage_stream = nn.Sequential(
-            nn.Linear(hidden_dim, hidden_dim // 2 ),
-            nn.SiLU(),
-            nn.Linear(hidden_dim // 2 , output_dim)
-        )
+        self.value_stream = nn.Linear(hidden_dim // 2, 1)
+        self.advantage_stream = nn.Linear(hidden_dim // 2, output_dim)
 
     def forward(self, x):
-        
-        #features
         features = self.feature_layer(x)
-        
-        #values step
         values = self.value_stream(features)
-        
-        #advantages step 
         advantages = self.advantage_stream(features)
-        
-        #Dueling Logic: Q = V + (A - mean(A))
-        q_vals = values + (advantages - advantages.mean(dim=1, keepdim=True))
-        
-        return q_vals
-
-
+        return values + (advantages - advantages.mean(dim=1, keepdim=True))
 
 class WeightedReplayBuffer:
-    def __init__(self,capacity=10000,alpha=0.6):
-        self.buffer=deque(maxlen=capacity) #normal buffer
-      
-        self.rewards=deque(maxlen=capacity) # Teniamo traccia solo delle reward per velocità
-        self.alpha=alpha # priority (1= uniform sampling ,0=uniform )
-        
-    def __len__(self):    
+    def __init__(self, capacity=10000, alpha=0.6):
+        self.buffer = deque(maxlen=capacity)
+        self.rewards = deque(maxlen=capacity)
+        self.alpha = alpha
+
+    # METODO AGGIUNTO: Permette di usare len(memory)
+    def __len__(self):
         return len(self.buffer)
-    
-    def push(self,state,action,reward,next_state,done):
-        transition=(state,action,reward,next_state,done)
-        
-        #put always into buffer ans save rewards
-        self.buffer.append(transition)
-        self.rewards.append(reward)
-        
-            
-    def sample(self,batch_size):
-    
-        #1  compute the weigths for (Priority)
-        # Use abs of reward to give importance
-        # add epsilon (1e-5) to guarantee also reward=0 has a possibility of being exctact
-        curr_len = len(self.buffer)
-        rewards_arr = np.array(self.rewards)
-        
-        
-        
-        #weights=(np.abs(rewards_arr) + 1e-5) ** self.alpha
-        
-        weights = np.abs(rewards_arr) +1e-5
-        
-        weights = np.where(rewards_arr > 50, weights * 10.0, weights)
-        
-        
-        weights = (weights) ** self.alpha
-        # Normalization to obtain probability:
-        probs=weights / weights.sum()
-        
-        #Weighted sampling
-        #choice from each batch size a sample given by weighted probabilities
-        indices=np.random.choice(curr_len,batch_size,p=probs,replace=False)
-        
-        batch=[self.buffer[i] for i in indices]
-        
-        state, action, reward, next_state, done = zip(*batch)
-       
-       
-        return np.array(state), action, reward, np.array(next_state), done
-        
-        
-def train_agent(env,train_smiles_list, episodes=1000, batch_size=64, lr=1e-3, device='cpu',path="checkpoint.pth"):
-    
-    output_dim = env.action_space_size
-    
-    policy_net = DuelingDQN(LATENT_DIM, output_dim).to(device)
-    target_net = DuelingDQN(LATENT_DIM, output_dim).to(device)
+
+    def push(self, s, a, r, ns, d):
+        self.buffer.append((s, a, r, ns, d))
+        self.rewards.append(r)
+
+    def sample(self, batch_size):
+        weights = (np.abs(self.rewards) + 1e-5) ** self.alpha
+        probs = weights / weights.sum()
+        indices = np.random.choice(len(self.buffer), batch_size, p=probs, replace=False)
+        batch = [self.buffer[i] for i in indices]
+        s, a, r, ns, d = zip(*batch)
+        return np.array(s), a, r, np.array(ns), d
+
+def train_agent(env, smiles_list, episodes=1000, batch_size=64, lr=1e-4, device='cpu', path="checkpoint.pth"):
+    policy_net = DuelingDQN(LATENT_DIM, env.action_space_size).to(device)
+    target_net = DuelingDQN(LATENT_DIM, env.action_space_size).to(device)
     target_net.load_state_dict(policy_net.state_dict())
-    target_net.eval()
-    
     optimizer = optim.Adam(policy_net.parameters(), lr=lr)
-    memory = WeightedReplayBuffer(MEMORY_SIZE_BUFFER,ALPHA)
-    best_avg_reward=-float("inf")
-    epsilon = EPSILON_START
-    epsilon_decay = EPSILON_DECAY
-    epsilon_min = EPSILON_MIN
-    gamma = GAMMA
+    memory = WeightedReplayBuffer(10000)
     
-    tau = TAU_START  #soft update... of target
-    tau_min = TAU_MIN     
-    tau_decay = TAU_DECAY  
-    print("Starting Dueling DQN training...")
-    
+    epsilon, epsilon_decay, tau = 1.0, 0.996, 0.005 
+    best_avg_reward = -float('inf')
     reward_history = []
-    
+
     for ep in range(episodes):
-        
-        #Observer randomly a different molecule
-        current_smile = random.choice(train_smiles_list)
-        state = env.reset(specific_smiles=current_smile)
-        #state = env.reset()
-        total_reward = 0
-        done = False
+        state = env.reset(random.choice(smiles_list))
+        total_reward, done = 0, False
         
         while not done:
-            if random.random() < epsilon:
-                action = random.randint(0, output_dim - 1)
+            if random.random() < epsilon: 
+                action = random.randint(0, env.action_space_size - 1)
             else:
-                policy_net.eval() #so we deactivate dropout
                 with torch.no_grad():
-                    state_tensor = torch.FloatTensor(state).unsqueeze(0).to(device)
-                    action = policy_net(state_tensor).argmax(dim = 1).item()
-                policy_net.train() 
+                    state_t = torch.FloatTensor(state).unsqueeze(0).to(device)
+                    action = policy_net(state_t).argmax(1).item()
             
-                
             next_state, reward, done, info = env.step(action)
             memory.push(state, action, reward, next_state, done)
             
-            
-            #oversampling if there is a flipped molecule(next state)
+            # Oversampling per successi (MEG logic)
             if done and info.get('flipped', False):
-                if info.get('sim', 0) >= 0.4:
-                    for _ in range(10):
-                        memory.push(state, action, reward, next_state, done) # we repeat this 5 times
-                        
-            state = next_state
-            total_reward += reward
+                for _ in range(5): memory.push(state, action, reward, next_state, done)
             
+            state, total_reward = next_state, total_reward + reward
+
             if len(memory) > batch_size:
-                
-                #weighted sampling
-                states, actions, rewards, next_states, dones = memory.sample(batch_size)
-                
-                states = torch.FloatTensor(states).to(device)
-                actions = torch.LongTensor(actions).unsqueeze(1).to(device)
-                rewards = torch.FloatTensor(rewards).unsqueeze(1).to(device)
-                next_states = torch.FloatTensor(next_states).to(device)
-                dones = torch.FloatTensor(dones).unsqueeze(1).to(device)
-                
-                #evaluate current Q from policy net
-                curr_Q = policy_net(states).gather(1, actions)
-                #next_Q = target_net(next_states).max(1)[0].unsqueeze(1)
-                #expected_Q = rewards + (1 - dones) * gamma * next_Q
+                s, a, r, ns, d = memory.sample(batch_size)
+                s_t, ns_t = torch.FloatTensor(s).to(device), torch.FloatTensor(ns).to(device)
+                a_t = torch.LongTensor(a).view(-1, 1).to(device)
+                r_t = torch.FloatTensor(r).view(-1, 1).to(device)
+                d_t = torch.FloatTensor(d).view(-1, 1).to(device)
 
-                
+                # Double DQN logic
+                curr_Q = policy_net(s_t).gather(1, a_t)
                 with torch.no_grad():
+                    next_a = policy_net(ns_t).argmax(1, keepdim=True)
+                    next_Q = target_net(ns_t).gather(1, next_a)
+                    expected_Q = r_t + (1 - d_t) * 0.99 * next_Q
 
-                    next_actions = policy_net(next_states).argmax(dim=1, keepdim=True)   # selezione azione by policy net
-                    next_Q = target_net(next_states).gather(1, next_actions)            # valutazione by target net
-                    expected_Q = rewards + (1 - dones) * gamma * next_Q
-
-
-                #loss = F.mse_loss(curr_Q, expected_Q)
-                #We use a smooth L1 LOSS more stable for higher reward
                 loss = F.smooth_l1_loss(curr_Q, expected_Q)
-
                 optimizer.zero_grad()
                 loss.backward()
-                
-                #clip gradient (avoid explosion gradient caused by high reward)
-                torch.nn.utils.clip_grad_norm_(policy_net.parameters(), max_norm=1.0)
+                torch.nn.utils.clip_grad_norm_(policy_net.parameters(), 1.0)
                 optimizer.step()
-                
-                # a risk....
-                #SOFT UPDATE del Target Network because otherwise this can provoke numerical instability
-                for target_param, local_param in zip(target_net.parameters(), policy_net.parameters()):
-                    target_param.data.copy_(tau*local_param.data + (1.0-tau)*target_param.data)
-                #target_net.load_state_dict(policy_net.state_dict())
-            
-        #epsilon and tau decay
-        epsilon = max(epsilon_min, epsilon * epsilon_decay)
-        
-        tau = max(tau_min, tau * tau_decay)
-        
+
+                # Soft update Target Net
+                for tp, lp in zip(target_net.parameters(), policy_net.parameters()):
+                    tp.data.copy_(tau * lp.data + (1.0 - tau) * tp.data)
+
+        epsilon = max(0.01, epsilon * epsilon_decay)
         reward_history.append(total_reward)
-        
-            
+
         if ep % 10 == 0:
-            #last mean reward of 10 episodes
-            avg_rew = np.mean(reward_history)
-            
+            avg_rew = np.mean(reward_history[-50:]) if len(reward_history) > 0 else 0
             if ep > 100 and avg_rew > best_avg_reward:
                 best_avg_reward = avg_rew
                 torch.save(policy_net.state_dict(), path)
-                print(f"  --> New Best Agent Saved! (Reward: {best_avg_reward:.2f})")
-            print(f"Ep {ep} | Avg Reward: {avg_rew:.2f} | Eps: {epsilon:.2f} | Last Info: {info['direction'] if 'direction' in info else ''}")
-
+                print(f"New Best Agent Saved! Reward: {avg_rew:.2f}")
+            print(f"Ep {ep} | Avg(50): {avg_rew:.2f} | Eps: {epsilon:.2f} | Dir: {info.get('direction', '')}")
+            
     return policy_net

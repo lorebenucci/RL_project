@@ -60,9 +60,9 @@ GAMMA= 0.99 #discount factor
 BATCH_SIZE_RL_AGENT=128
 LR_GENERATOR= 3e-4
 
-EPOCHS_AGENT = 3000
+EPOCHS_AGENT = 2000
 MEMORY_SIZE_BUFFER= 20000 # Replay buffer
-MAX_STEPS =10 # number of possible modifies for each episode
+MAX_STEPS =20 # number of possible modifies for each episode
 DIM_DESCRIPTORS=2048
 
 TAU_START=0.005

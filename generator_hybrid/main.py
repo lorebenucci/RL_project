@@ -86,8 +86,17 @@ def main():
     path="best_agent_checkpoint.pth"
     # --- TRAINING LOOP ---
     print(f"Starting Training for {EPOCHS_AGENT} episodes...")
-    trained_agent = train_agent(env,train_smiles_list=train_smiles, episodes=EPOCHS_AGENT,batch_size=BATCH_SIZE_RL_AGENT, lr=LR_GENERATOR, device=DEVICE,path = path)
-
+    # In main.py, modifica la sezione di training così:
+    print(f"Starting Training for {EPOCHS_AGENT} episodes...")
+    trained_agent = train_agent(
+        env,
+        smiles_list=train_smiles,  # <--- Corretto
+        episodes=EPOCHS_AGENT,
+        batch_size=BATCH_SIZE_RL_AGENT, 
+        lr=LR_GENERATOR, 
+        device=DEVICE,
+        path=path
+    )
     # --- SALVATAGGIO ---
     #save_path = "dueling_dqn_agent_multitask.pth"
     #torch.save(trained_agent.state_dict(), save_path)
