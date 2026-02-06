@@ -6,7 +6,7 @@ import numpy as np
 import random
 from collections import deque
 from config import *
-
+from utils import *
 class DuelingDQN(nn.Module):
     def __init__(self, input_dim, output_dim, hidden_dim=1024):
         super(DuelingDQN, self).__init__()
@@ -61,8 +61,16 @@ def train_agent(env, smiles_list, episodes=1000, batch_size=64, lr=1e-4, device=
     policy_net = DuelingDQN(LATENT_DIM, env.action_space_size).to(device)
     target_net = DuelingDQN(LATENT_DIM, env.action_space_size).to(device)
     target_net.load_state_dict(policy_net.state_dict())
+    
+    steps_per_epoch = len(smiles_list)
+    total_steps = EPOCHS_AGENT * steps_per_epoch
+    warmup_steps = int(total_steps * 0.20) 
+    
     optimizer = optim.Adam(policy_net.parameters(), lr=lr)
     memory = WeightedReplayBuffer(10000)
+    
+    #scheduler
+    #scheduler = create_lr_scheduler(optimizer, total_steps, warmup_steps)
     
     epsilon, epsilon_decay, tau = 1.0, 0.996, 0.005 
     best_avg_reward = -float('inf')
@@ -111,6 +119,9 @@ def train_agent(env, smiles_list, episodes=1000, batch_size=64, lr=1e-4, device=
                 loss.backward()
                 torch.nn.utils.clip_grad_norm_(policy_net.parameters(), 1.0)
                 optimizer.step()
+                
+                #add scheduler
+                #scheduler.step()
 
                 # Soft update Target Net
                 for tp, lp in zip(target_net.parameters(), policy_net.parameters()):

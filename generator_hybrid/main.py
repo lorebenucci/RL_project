@@ -83,7 +83,7 @@ def main():
     print(f"Initializing Environment for: {train_smiles}")
     env = MoleculeEnv(gnn_model=gnn_model,threshold=0.4,max_steps=MAX_STEPS,device=DEVICE)
 
-    path="best_experimental_agent_checkpoint_tuning_parameters.pth"
+    path="best_experimental_agent_checkpoint_tuning_parameters_no_scheduler.pth"
     # --- TRAINING LOOP ---
     print(f"Starting Training for {EPOCHS_AGENT} episodes...")
     # In main.py, modifica la sezione di training così:

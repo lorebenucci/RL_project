@@ -78,7 +78,7 @@ def evaluate_model(agent, env, test_smiles_list, device='cpu',verbose=True):
             has_flipped = (not final_toxic) if start_toxic else (final_toxic)
             
             #simililarity constraint
-            is_similar = final_sim_hybrid >= 0.5
+            is_similar = final_sim_hybrid >= 0.4
             
             #Update statistics
             if has_flipped:
