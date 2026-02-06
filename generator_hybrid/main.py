@@ -81,7 +81,7 @@ def main():
     #start_smiles = "c1ccccc1" 
 
     print(f"Initializing Environment for: {train_smiles}")
-    env = MoleculeEnv(gnn_model=gnn_model,threshold=0.4,max_steps=MAX_STEPS,device=DEVICE)
+    env = MoleculeEnv(gnn_model=gnn_model,threshold=0.6,max_steps=MAX_STEPS,device=DEVICE)
 
     path="best_experimental_agent_checkpoint_tuning_parameters.pth"
     # --- TRAINING LOOP ---

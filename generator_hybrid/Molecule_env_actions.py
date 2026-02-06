@@ -7,7 +7,7 @@ from utils import *
 class ChemicalActionSpace:
     def __init__(self):
         self.atom_types = ['C', 'O', 'N', 'F', 'Cl', 'S', 'P', 'Br', 'I']
-        self.num_actions = len(self.atom_types) * 3 + 3
+        self.num_actions = len(self.atom_types) * 3 + 4
         self.max_valence = {'C': 4, 'N': 3, 'O': 2, 'F': 1, 'Cl': 1, 'S': 6, 'P': 5, 'Br': 1, 'I': 1}
 
     def _get_free_valence(self, atom):
@@ -76,7 +76,7 @@ class ChemicalActionSpace:
         except: return None
 
 class MoleculeEnv:
-    def __init__(self, gnn_model, threshold=0.4, max_steps=20, device='cpu'): # Aumentati steps [cite: 1026]
+    def __init__(self, gnn_model, threshold=0.6, max_steps=20, device='cpu'): # Aumentati steps [cite: 1026]
         self.gnn_model = gnn_model
         self.max_steps = max_steps
         self.device = device
@@ -151,8 +151,8 @@ class MoleculeEnv:
             self.current_mol = new_mol
 
             # Calcolo Similarità Ibrida e Tanimoto
-            fp_s = AllChem.GetMorganFingerprintAsBitVect(self.start_mol, 2)
-            fp_c = AllChem.GetMorganFingerprintAsBitVect(self.current_mol, 2)
+            fp_s = AllChem.GetMorganFingerprintAsBitVect(self.start_mol, 1)
+            fp_c = AllChem.GetMorganFingerprintAsBitVect(self.current_mol, 1)
             tanimoto = DataStructs.TanimotoSimilarity(fp_s, fp_c)
             curr_probs, curr_toxic, curr_emb = self._get_toxicity(self.current_mol)
             cosine = torch.nn.functional.cosine_similarity(self.start_embedding, curr_emb).item()
@@ -184,7 +184,7 @@ class MoleculeEnv:
             
             # 5. Calcolo Reward del Gradiente
             delta_tox = (np.max(curr_probs) - self.start_max_prob) * self.direction
-            reward += (delta_tox * 40.0) if delta_tox > 0 else (delta_tox * 10.0)
+            reward += (delta_tox * 100.0) if delta_tox > 0 else (delta_tox * 0.0)
 
             # 6. Verifica Successo (Flip della tossicità)
             has_flipped = (not curr_toxic) if self.start_is_toxic else curr_toxic
@@ -192,19 +192,19 @@ class MoleculeEnv:
             if has_flipped:
                 
                 if hybrid_sim >= self.threshold:
-                    reward += (100.0 * hybrid_sim) + 60.0 
+                    reward += (100.0 * (hybrid_sim ** 2)) + 60.0 
                     
                     # BONUS EFFICIENZA CONTINUO
                     steps_saved = self.max_steps - self.steps
                     reward += steps_saved * 2.0
                 else: 
-                    reward += 20.0
+                    reward += + 5.0
                 
                 
                 info['flipped'] = True
                 done = True
             else: 
-                #reward += 10.0 #add this 
+                #reward += 10.0 #add this
                 done = (self.steps >= self.max_steps)
 
             return self._get_state_from_embedding(curr_emb), reward, done, info
