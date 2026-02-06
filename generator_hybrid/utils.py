@@ -118,3 +118,25 @@ def mol_to_graph_data(mol, device='cpu'):
     except Exception as e:
         print(f"Error in conversion: {e}")
         return None, None, None
+    
+
+def create_lr_scheduler(optimizer, num_train_steps, warmup_steps):
+    """Creates a learning rate scheduler with a linear warmup and cosine decay."""
+    
+    # Scheduler for the linear warmup phase
+    warmup_scheduler = torch.optim.lr_scheduler.LinearLR(
+        optimizer, start_factor=0.01, end_factor=1.0, total_iters=warmup_steps
+    )
+    
+    # Scheduler for the cosine decay phase
+    decay_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
+        optimizer, T_max=(num_train_steps - warmup_steps)
+    )
+    
+    # Chain them together
+    lr_scheduler = torch.optim.lr_scheduler.SequentialLR(
+        optimizer,
+        schedulers=[warmup_scheduler, decay_scheduler],
+        milestones=[warmup_steps]
+    )
+    return lr_scheduler
