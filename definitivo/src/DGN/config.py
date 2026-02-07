@@ -7,7 +7,7 @@ DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 NUM_WORKERS = 4
 PRE_LOAD_BATCH=4
 RANDOM_SEED=42
-DATASET_PATH="./datasets/tox21_processed_features.csv"
+DATASET_PATH="../datasets/tox21_processed_features.csv"
 
 
 #-------------Dataset transformation from smiles to Graph: we define all possible subset of parameters to build node structure
@@ -39,10 +39,11 @@ TEST_PERCENTAGE=0.15
 BATCH_SIZE =64
 PRE_LOAD_BATCH=4
 PIN_MEMORY=True
-
-
+#---------------
 #--- GNN MODEL CONFIG ---
+
 EPOCHS = 200
+#HIDDEN_CHANNELS=128 #number of channels 
 HIDDEN_CHANNELS=128
 NUM_CLASSES=12
 NODE_FEATURES=88
@@ -54,3 +55,39 @@ NUM_GLOBAL_FEATURES=2
 
 LATENT_DIM = (HIDDEN_CHANNELS * 5 * 2) + NUM_GLOBAL_FEATURES
 
+
+# --- RL AGENT CONFIG
+#GAMMA= 0.99 #discount factor
+GAMMA= 0.5
+#BATCH_SIZE_RL_AGENT=128
+BATCH_SIZE_RL_AGENT=64
+#LR_GENERATOR= 3e-4
+LR_GENERATOR=0.0005
+EPOCHS_AGENT = 3000
+MEMORY_SIZE_BUFFER= 20000 # Replay buffer
+MAX_STEPS =1 # number of possible modifies for each episode
+DIM_DESCRIPTORS=2048
+
+TAU_START=0.005
+TAU_MIN=0.001
+TAU_DECAY=0.995
+ALPHA=0.6
+
+
+EPSILON_START =1.0 # Initial exploration (max exploration)
+EPSILON_MIN = 0.05 # Final exploration 
+EPSILON_DECAY = 0.9985  #epsilon decay 
+
+#----------------------------
+
+# ---------------------------
+#Measurement for MW AND LOGP
+MEAN_MW=276.1441553893223
+STD_MW=164.73235552463632
+MEAN_LOGP=2.373942812220377
+STD_LOGP=2.3043073032948307
+
+
+
+
+#"{'lr': 0.0005, 'gamma': 0.5, 'batch_size': 64, 'hidden_dim': 512}"

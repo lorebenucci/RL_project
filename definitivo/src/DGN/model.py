@@ -2,6 +2,8 @@ import torch
 import torch.nn as nn
 from torch_geometric.nn import GINEConv, global_add_pool, global_max_pool
 
+
+
 class GINEMLP(nn.Module):
     
     def __init__(self, in_channels, out_channels, dropout=0.1):
@@ -18,11 +20,10 @@ class GINEMLP(nn.Module):
         self.act = nn.SiLU() 
         self.dropout = nn.Dropout(dropout)
         
-        # to appply a possible residual connection
-        self.has_residual = (in_channels == out_channels)
+      
         
     def forward(self, x):
-        #identity = x  # Salviamo l'input per la somma finale (Residual)
+        
         
         # Block1
         out = self.lin1(x)
@@ -81,6 +82,7 @@ class Tox21GNN(nn.Module):
         
     def forward(self,x,edge_index,edge_attr,batch,global_features):
         
+        #ENCODER OVER Features
         x = self.node_encoder(x)
         #ENCODER OVER BOND
         edge_emb=self.bond_encoder(edge_attr)
@@ -100,12 +102,10 @@ class Tox21GNN(nn.Module):
         # Layer 5
         x5 = self.conv5(x4, edge_index,edge_attr=edge_emb)
         
-        #Jumping Knowledge: concat layers
+        #concat embedding obtained from convolution 
         x_combined = torch.cat([x1, x2, x3, x4, x5], dim=-1)
-        #x_combined = torch.cat([x1, x2, x3, x4, x5], dim=-1)
         
-        #Global Pooling: prende tutti i vettori degli atomi che appartengono alla stessa molecola e
-        # li somma insieme per creare un unico "Super-Vettore" che rappresenta l'intera molecola.
+        
         x_add = global_add_pool(x_combined, batch)
         x_max = global_max_pool(x_combined, batch)
         x_pool = torch.cat([x_add, x_max], dim=1)
@@ -118,6 +118,7 @@ class Tox21GNN(nn.Module):
             
             x_final=x_pool
         
+        #calssifier NN
         logits = self.classifier(x_final)
         
         return logits
