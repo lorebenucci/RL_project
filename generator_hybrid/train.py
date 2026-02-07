@@ -57,14 +57,14 @@ class WeightedReplayBuffer:
         s, a, r, ns, d = zip(*batch)
         return np.array(s), a, r, np.array(ns), d, weights
 
-def train_agent(env, smiles_list, episodes=1000, batch_size=64, lr=1e-4, device='cpu', path="checkpoint.pth"):
-    policy_net = DuelingDQN(LATENT_DIM, env.action_space_size).to(device)
-    target_net = DuelingDQN(LATENT_DIM, env.action_space_size).to(device)
+def train_agent(env, smiles_list, episodes=1000, batch_size=64, lr=1e-4,gamma=0.99,hidden_channels=1024, device='cpu', path="checkpoint.pth"):
+    policy_net = DuelingDQN(LATENT_DIM, env.action_space_size,hidden_dim=hidden_channels).to(device)
+    target_net = DuelingDQN(LATENT_DIM, env.action_space_size,hidden_dim=hidden_channels).to(device)
     target_net.load_state_dict(policy_net.state_dict())
     
-    steps_per_epoch = len(smiles_list)
-    total_steps = EPOCHS_AGENT * steps_per_epoch
-    warmup_steps = int(total_steps * 0.20) 
+    #steps_per_epoch = len(smiles_list)
+    #total_steps = EPOCHS_AGENT * steps_per_epoch
+    #warmup_steps = int(total_steps * 0.20) 
     
     optimizer = optim.Adam(policy_net.parameters(), lr=lr)
     memory = WeightedReplayBuffer(10000)
@@ -110,7 +110,7 @@ def train_agent(env, smiles_list, episodes=1000, batch_size=64, lr=1e-4, device=
                 with torch.no_grad():
                     next_a = policy_net(ns_t).argmax(1, keepdim=True)
                     next_Q = target_net(ns_t).gather(1, next_a)
-                    expected_Q = r_t + (1 - d_t) * 0.99 * next_Q
+                    expected_Q = r_t + (1 - d_t) * gamma * next_Q
 
                 loss = F.smooth_l1_loss(curr_Q, expected_Q)
                 loss = (loss * weights_tensor).mean()

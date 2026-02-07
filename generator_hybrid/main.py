@@ -66,12 +66,14 @@ def main():
     all_smiles=tox21_df["smiles"].values
     print(f"DEBUG: Caricate {len(all_smiles)} righe dal CSV.")
     
-    train_smiles,test_smiles=train_test_split(
-    all_smiles,
-    train_size=0.7,
-    test_size=0.3, 
-    random_state=RANDOM_SEED
-   )
+    #train_smiles,test_smiles=train_test_split(
+    #all_smiles,
+    #train_size=0.7,
+    #test_size=0.3, 
+    #random_state=RANDOM_SEED
+   #)
+    train_smiles,temp_smiles = train_test_split(all_smiles, train_size=0.7, test_size=0.3, random_state=RANDOM_SEED)
+    valid_smiles, test_smiles = train_test_split(temp_smiles,test_size=0.5, random_state=RANDOM_SEED)
     
     print(f"Totale molecole: {len(all_smiles)}")
     print(f"Train Set (per RL Training): {len(train_smiles)} molecole")
@@ -83,20 +85,24 @@ def main():
     print(f"Initializing Environment for: {train_smiles}")
     env = MoleculeEnv(gnn_model=gnn_model,threshold=0.6,max_steps=MAX_STEPS,device=DEVICE)
 
-    path="best_experimental_agent_checkpoint_tuning_parameters_no_scheduler.pth"
+    path="best_experimental_agent_checkpoint_tuning_parameters_no_scheduler_gridsearch.pth"
     # --- TRAINING LOOP ---
     print(f"Starting Training for {EPOCHS_AGENT} episodes...")
     # In main.py, modifica la sezione di training così:
     print(f"Starting Training for {EPOCHS_AGENT} episodes...")
-    #trained_agent = train_agent(
-     #   env,
-      #  smiles_list=train_smiles,  # <--- Corretto
-       # episodes=EPOCHS_AGENT,
-        #batch_size=BATCH_SIZE_RL_AGENT, 
-      #  lr=LR_GENERATOR, 
-     #   device=DEVICE,
-      #  path=path
-    #)
+    """
+    trained_agent = train_agent(
+        env,
+        smiles_list=train_smiles,  # <--- Corretto
+        episodes=EPOCHS_AGENT,
+      batch_size=BATCH_SIZE_RL_AGENT, 
+       lr=LR_GENERATOR,
+       gamma=GAMMA,
+       hidden_channels=512,
+       device=DEVICE,
+        path=path
+    )
+    """
     # --- SALVATAGGIO ---
     #save_path = "dueling_dqn_agent_multitask.pth"
     #torch.save(trained_agent.state_dict(), save_path)
@@ -107,11 +113,11 @@ def main():
         print(f"Loading Best Agent from {path} for evaluation...")
         # Qui ha senso creare una nuova istanza perché vuoi caricare i pesi migliori,
         # non usare quelli dell'ultimo step che hai in memoria.
-        best_agent = DuelingDQN(input_dim=LATENT_DIM, output_dim=env.action_space_size).to(DEVICE)
+        best_agent = DuelingDQN(input_dim=LATENT_DIM, output_dim=env.action_space_size,hidden_dim=512).to(DEVICE)
         best_agent.load_state_dict(torch.load(path))
         stats = evaluate_model(best_agent, env, test_smiles, device=DEVICE)
     else:
-        trained_agent = DuelingDQN(input_dim=LATENT_DIM, output_dim=env.action_space_size).to(DEVICE)
+        trained_agent = DuelingDQN(input_dim=LATENT_DIM, output_dim=env.action_space_size,hidden_dim=512).to(DEVICE)
         trained_agent.load_state_dict(torch.load(path))
 
         stats=evaluate_model(trained_agent, env, test_smiles, device=DEVICE)

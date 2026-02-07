@@ -265,7 +265,7 @@ def evaluate_model(agent, env, test_smiles_list, device='cpu', verbose=True, att
     print(f"Loose Success Rate (Any Flip):          {accuracy_loose:.2%}")
     print("-" * 60)
     print("METRICHE SUI SUCCESSI (Counterfactuals Validi):")
-    print(f"  > Avg Tanimoto (on Success):          {mean_tani_success:.3f}  <-- GUARDA QUESTO")
+    print(f"  > Avg Tanimoto (on Success):          {mean_tani_success:.3f}")
     print(f"  > Avg Hybrid Sim (on Success):        {mean_sim_success:.3f}")
     print(f"  > Avg Steps (on Success):             {mean_steps_success:.1f}")
     print("-" * 60)
