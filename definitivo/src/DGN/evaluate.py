@@ -1,3 +1,5 @@
+# EVALUATION
+
 import torch
 from src.DGN.config import DEVICE
 from src.DGN.utils import apply_masks
@@ -40,14 +42,11 @@ def compute_val_roc_auc(model,loader,isprocess=False):
         for batch in progressBar:
             batch = batch.to(DEVICE)
             
-            # 1. Forward Pass
             logits = model(batch.x, batch.edge_index,batch.edge_attr, batch.batch, batch.global_feat)
-            # 2. Application  Sigmoid (Logits -> Probabilities 0-1)
             probs = torch.sigmoid(logits)
             all_probs.append(probs.cpu())
             all_targets.append(batch.y.cpu())
             
-   #concat and save predictions and y_true 
     y_probs = torch.cat(all_probs, dim=0).numpy()
     y_true = torch.cat(all_targets, dim=0).numpy()
     
@@ -56,7 +55,6 @@ def compute_val_roc_auc(model,loader,isprocess=False):
     
         col_true = y_true[:, i]
         col_pred = y_probs[:, i]
-        # Masks NaN
         mask = ~np.isnan(col_true)
         valid_true = col_true[mask]
         valid_pred = col_pred[mask]
@@ -64,7 +62,6 @@ def compute_val_roc_auc(model,loader,isprocess=False):
         if len(np.unique(valid_true)) < 2:
             continue
         else:
-            # Compute ROC_AUC
             score = roc_auc_score(valid_true, valid_pred)
             roc_auc_scores.append(score)
     

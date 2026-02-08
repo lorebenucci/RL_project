@@ -1,3 +1,5 @@
+# DATASET
+
 import torch
 import os
 import numpy as np
@@ -29,7 +31,7 @@ class Dataset_tox21(Dataset):
         self.permitted_bonds=permitted_bonds
         self.stereo_list=stereo_list
         
-        # Chemical rules for acceptor and donators
+        # rules for acceptor and donators
         self.fdefName = os.path.join(RDConfig.RDDataDir, 'BaseFeatures.fdef')
         self.factory = ChemicalFeatures.BuildFeatureFactory(self.fdefName)
         self.data_list = []

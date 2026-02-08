@@ -1,7 +1,8 @@
+# MODEL
+
 import torch
 import torch.nn as nn
 from torch_geometric.nn import GINEConv, global_add_pool, global_max_pool
-
 
 
 class MLP(nn.Module):

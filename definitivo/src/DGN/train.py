@@ -1,3 +1,5 @@
+# TRAINING
+
 import torch
 import numpy as np
 from tqdm.auto import tqdm
@@ -104,5 +106,5 @@ def train(model, train_loader, val_loader,scheduler, criterion, optimizer):
         if current_val_auc > best_val_auc:
             best_val_auc = current_val_auc
             torch.save(model.state_dict(), save_path)
-            print(f"Nuovo Best saved at epoch: {epoch+1}")
+            print(f"Best saved at epoch: {epoch+1}")
  
