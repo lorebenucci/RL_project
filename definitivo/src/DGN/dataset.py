@@ -50,33 +50,16 @@ class Dataset_tox21(Dataset):
     def get_atom_features(self,atom,donor_indices,acceptor_indices):
         
         atom_feature=[]
-        # 1. Atom Type (One-Hot) 
-        atom_feature += one_hot_encoding(atom.GetSymbol(),self.permitted_atoms)
+        atom_feature += one_hot_encoding(atom.GetSymbol(),self.permitted_atoms) # atomic symbol
+        atom_feature += [atom.GetAtomicNum() * 0.01] # scaled atomic number
+        atom_feature += one_hot_encoding(atom.GetDegree(),self.degree_atoms) # atom degree
+        atom_feature += one_hot_encoding(atom.GetTotalNumHs(),self.number_hydrogens) # hydrogens
+        atom_feature += one_hot_encoding(atom.GetHybridization(), self.hybrization_type)# hybridization
+        atom_feature += [1 if atom.GetIsAromatic() else 0] # aromaticity
         
-        # 2 Atomic number(Scalar) ---
-        # Lo scaliamo diviso 100 per mantenere i valori piccoli (tra 0 e 1 circa) per la rete neurale
-        atom_feature += [atom.GetAtomicNum() * 0.01] 
-        
-        #
-        # 3. atom degree
-        atom_feature += one_hot_encoding(atom.GetDegree(),self.degree_atoms)
-        
-        #
-        # 4. Hydrogens
-        atom_feature += one_hot_encoding(atom.GetTotalNumHs(),self.number_hydrogens)
-        
-        # 5. Hybridization
-        atom_feature += one_hot_encoding(atom.GetHybridization(), self.hybrization_type)
-        
-        # 6. Aromatic
-        atom_feature += [1 if atom.GetIsAromatic() else 0]
-        
-        # 7 H-Bond Donor
         atom_idx = atom.GetIdx()
-        atom_feature += [1 if atom_idx in donor_indices else 0]
-
-        # 8 H-Bond Acceptor (Booleano) ---
-        atom_feature += [1 if atom_idx in acceptor_indices else 0]
+        atom_feature += [1 if atom_idx in donor_indices else 0] # h-bond donator
+        atom_feature += [1 if atom_idx in acceptor_indices else 0] # h-bond acceptor
         
         # 9. Chirality (Tag R/S/None)
         try:
@@ -86,9 +69,9 @@ class Dataset_tox21(Dataset):
             elif chirality == 'S':
                 atom_feature += [0, 1, 0] # S
             else:
-                atom_feature += [0, 0, 1] # None/Other
+                atom_feature += [0, 0, 1] # none
         except:
-            atom_feature += [0, 0, 1] # Nessuna chiralità definita
+            atom_feature += [0, 0, 1] # Any defined (none)
         
         #formal charge (-2,-1,0,+1,+2)   
         formal_charge = atom.GetFormalCharge()
