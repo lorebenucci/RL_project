@@ -2,23 +2,21 @@ import torch
 import numpy as np
 from tqdm.auto import tqdm
 from src.DGN.utils import apply_masks
-from src.DGN.config import DEVICE
-
+from src.DGN.config import DEVICE, EPOCHS, MODEL_PATH
+from src.DGN.evaluate import run_validation_epoch, compute_val_roc_auc
 
 
 def compute_class_weights(loader):
-    print("Calcolo dei pesi per il bilanciamento classi (pos_weight)...")
+
     all_labels = []
     
-   
     for batch in loader:
         all_labels.append(batch.y)
     
-    
     all_labels = torch.cat(all_labels, dim=0).numpy()
-    
     weights = []
-    for i in range(12): # Per (colonna)
+
+    for i in range(12): 
         col = all_labels[:, i]
     
         valid_indices = ~np.isnan(col)
@@ -40,19 +38,18 @@ def compute_class_weights(loader):
 
 
 def create_lr_scheduler(optimizer, num_train_steps, warmup_steps):
-    """Creates a learning rate scheduler with a linear warmup and cosine decay."""
-    
-    # Scheduler for the linear warmup phase
+
+    # warmup
     warmup_scheduler = torch.optim.lr_scheduler.LinearLR(
         optimizer, start_factor=0.01, end_factor=1.0, total_iters=warmup_steps
     )
     
-    # Scheduler for the cosine decay phase
+    # cosine decay
     decay_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
         optimizer, T_max=(num_train_steps - warmup_steps)
     )
     
-    # Chain them together
+    # chaining together
     lr_scheduler = torch.optim.lr_scheduler.SequentialLR(
         optimizer,
         schedulers=[warmup_scheduler, decay_scheduler],
@@ -62,6 +59,7 @@ def create_lr_scheduler(optimizer, num_train_steps, warmup_steps):
 
 
 def train_one_epoch(model,train_loader,scheduler,criterion,optimizer,isprogress):
+    
     model.train()
     total_loss = 0
     total_molecules = 0
@@ -84,7 +82,27 @@ def train_one_epoch(model,train_loader,scheduler,criterion,optimizer,isprogress)
         optimizer.step()
         scheduler.step()
         
-        total_loss += loss.item() * batch.num_graphs # Per media pesata corretta
+        total_loss += loss.item() * batch.num_graphs 
         total_molecules += batch.num_graphs
         
     return total_loss / total_molecules
+
+
+def train(model, train_loader, val_loader,scheduler, criterion, optimizer):
+    
+    best_val_auc = 0.0
+    save_path = MODEL_PATH
+
+    for epoch in range(EPOCHS):
+        train_loss=train_one_epoch(model,train_loader,scheduler,criterion,optimizer,True)
+        val_loss = run_validation_epoch(model,val_loader,criterion)
+        
+        current_val_auc = compute_val_roc_auc(model, val_loader,True)
+        
+        print(f"Epoch {epoch + 1}/{EPOCHS} | Training Loss: {train_loss:.6f} | Validation Loss: {val_loss:.6f}")
+        
+        if current_val_auc > best_val_auc:
+            best_val_auc = current_val_auc
+            torch.save(model.state_dict(), save_path)
+            print(f"Nuovo Best saved at epoch: {epoch+1}")
+ 
