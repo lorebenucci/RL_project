@@ -76,14 +76,16 @@ class ChemicalActionSpace:
         except: return None
 
 class MoleculeEnv:
-    def __init__(self, gnn_model, threshold=0.6, max_steps=20, device='cpu'): # Aumentati steps [cite: 1026]
+    def __init__(self, gnn_model, threshold=0.6, max_steps=20, device='cpu',w_tox=W_TOX,w_flip=W_FLIP,w_sim_penalty=W_PEN): # Aumentati steps [cite: 1026]
         self.gnn_model = gnn_model
         self.max_steps = max_steps
         self.device = device
         self.threshold = threshold
         self.action_space = ChemicalActionSpace()
         self.action_space_size = self.action_space.num_actions
-
+        self.w_tox=w_tox
+        self.w_flip=w_flip
+        self.w_sim_penalty=w_sim_penalty
     def _get_toxicity(self, mol):
         if not mol: return [0.0]*12, False, None
         x, edge_index, edge_attr = mol_to_graph_data(mol, self.device)
@@ -180,11 +182,11 @@ class MoleculeEnv:
             if hybrid_sim < self.threshold:
                 # Più ti allontani dall'originale, più paghi a ogni step.
                 # Esempio: Sim 0.35 (soglia 0.4) -> Malus -0.5
-                reward -= (self.threshold - hybrid_sim) * 10.0
+                reward -= (self.threshold - hybrid_sim) * self.w_sim_penalty
             
             # 5. Calcolo Reward del Gradiente
             delta_tox = (np.max(curr_probs) - self.start_max_prob) * self.direction
-            reward += (delta_tox * 100.0) if delta_tox > 0 else (delta_tox * 0.0)
+            reward += (delta_tox * self.w_tox) if delta_tox > 0 else (delta_tox * 0.0)
 
             # 6. Verifica Successo (Flip della tossicità)
             has_flipped = (not curr_toxic) if self.start_is_toxic else curr_toxic
@@ -192,13 +194,13 @@ class MoleculeEnv:
             if has_flipped:
                 
                 if hybrid_sim >= self.threshold:
-                    reward += (100.0 * (hybrid_sim ** 2)) + 60.0 
+                    reward += (self.w_flip * (hybrid_sim ** 2)) + 60.0 
                     
                     # BONUS EFFICIENZA CONTINUO
                     steps_saved = self.max_steps - self.steps
                     reward += steps_saved * 2.0
                 else: 
-                    reward += + 5.0
+                    reward +=  5.0
                 
                 
                 info['flipped'] = True

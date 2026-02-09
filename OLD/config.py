@@ -58,21 +58,21 @@ LATENT_DIM = (HIDDEN_CHANNELS * 5 * 2) + NUM_GLOBAL_FEATURES
 
 # --- RL AGENT CONFIG
 #GAMMA= 0.99 #discount factor
-GAMMA= 0.5
-#BATCH_SIZE_RL_AGENT=128
+GAMMA= 0.9
 BATCH_SIZE_RL_AGENT=64
-#LR_GENERATOR= 3e-4
 LR_GENERATOR=0.0005
 EPOCHS_AGENT = 3000
 MEMORY_SIZE_BUFFER= 20000 # Replay buffer
 MAX_STEPS =1 # number of possible modifies for each episode
 DIM_DESCRIPTORS=2048
-
+HIDDEN_CHANNELS_RL=512
 TAU_START=0.005
 TAU_MIN=0.001
 TAU_DECAY=0.995
 ALPHA=0.6
-
+W_TOX=150.0
+W_FLIP=300.0
+W_PEN=50.0
 
 EPSILON_START =1.0 # Initial exploration (max exploration)
 EPSILON_MIN = 0.05 # Final exploration 
@@ -89,5 +89,8 @@ STD_LOGP=2.3043073032948307
 
 
 
-
+#Best config with Grid search
 #"{'lr': 0.0005, 'gamma': 0.5, 'batch_size': 64, 'hidden_dim': 512}"
+#"{'lr': 0.0005, 'gamma': 0.9, 'batch_size': 64, 'hidden_dim': 512, 'w_tox': 100.0, 'w_flip': 150.0, 'w_pen': 25.0}
+#Best config reward
+#{'w_tox': 150.0, 'w_flip': 300.0, 'w_pen': 50.0}

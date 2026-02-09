@@ -83,17 +83,17 @@ def main():
     #start_smiles = "c1ccccc1" 
 
     print(f"Initializing Environment for: {train_smiles}")
-    env = MoleculeEnv(gnn_model=gnn_model,threshold=0.6,max_steps=MAX_STEPS,device=DEVICE)
+    env = MoleculeEnv(gnn_model=gnn_model,threshold=0.6,max_steps=MAX_STEPS,device=DEVICE,w_tox=W_TOX,w_flip=W_FLIP,w_sim_penalty=W_PEN)
 
-    path="best_experimental_agent_checkpoint_tuning_parameters_no_scheduler_gridsearch.pth"
+    path="best_experimental_agent_checkpoint_tuning_parameters_no_scheduler_gridsearch_plus_reward_combined.pth"
     # --- TRAINING LOOP ---
     print(f"Starting Training for {EPOCHS_AGENT} episodes...")
     # In main.py, modifica la sezione di training così:
     print(f"Starting Training for {EPOCHS_AGENT} episodes...")
-    """
+    
     trained_agent = train_agent(
         env,
-        smiles_list=train_smiles,  # <--- Corretto
+        smiles_list=train_smiles,  
         episodes=EPOCHS_AGENT,
       batch_size=BATCH_SIZE_RL_AGENT, 
        lr=LR_GENERATOR,
@@ -102,7 +102,7 @@ def main():
        device=DEVICE,
         path=path
     )
-    """
+    
     # --- SALVATAGGIO ---
     #save_path = "dueling_dqn_agent_multitask.pth"
     #torch.save(trained_agent.state_dict(), save_path)
