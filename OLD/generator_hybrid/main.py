@@ -2,7 +2,7 @@ import torch
 import os
 import numpy as np
 import random
-
+from analysis import analysis
 
 def set_seed(seed):
     random.seed(seed)
@@ -85,12 +85,12 @@ def main():
     print(f"Initializing Environment for: {train_smiles}")
     env = MoleculeEnv(gnn_model=gnn_model,threshold=0.6,max_steps=MAX_STEPS,device=DEVICE,w_tox=W_TOX,w_flip=W_FLIP,w_sim_penalty=W_PEN)
 
-    path="best_experimental_agent_checkpoint_tuning_parameters_no_scheduler_gridsearch_plus_reward_combined.pth"
+    path="best_experimental_agent_checkpoint_tuning_parameters_no_scheduler_gridsearch.pth"
     # --- TRAINING LOOP ---
     print(f"Starting Training for {EPOCHS_AGENT} episodes...")
     # In main.py, modifica la sezione di training così:
     print(f"Starting Training for {EPOCHS_AGENT} episodes...")
-    
+    """
     trained_agent = train_agent(
         env,
         smiles_list=train_smiles,  
@@ -102,7 +102,7 @@ def main():
        device=DEVICE,
         path=path
     )
-    
+    """
     # --- SALVATAGGIO ---
     #save_path = "dueling_dqn_agent_multitask.pth"
     #torch.save(trained_agent.state_dict(), save_path)
@@ -121,7 +121,11 @@ def main():
         trained_agent.load_state_dict(torch.load(path))
 
         stats=evaluate_model(trained_agent, env, test_smiles, device=DEVICE)
+        
     
+    
+    
+    analysis(stats=stats)
     
 
 if __name__ == "__main__":
