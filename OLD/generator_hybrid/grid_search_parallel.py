@@ -108,6 +108,7 @@ def run_parallel_grid_search():
 
    
     'hidden_dim': [256, 512, 1024],
+<<<<<<< Updated upstream:OLD/generator_hybrid/grid_search_parallel.py
 
     'w_tox': [ 100.0, 150.0, 200.0],
 
@@ -116,6 +117,28 @@ def run_parallel_grid_search():
 
        
     'w_pen': [25.0, 50.0]
+=======
+   #Quanto spingere sulla direzione?
+        # - 50.0: Basso. Lascia che sia il Jackpot (w_flip) a guidare, riduce il rumore.
+        # - 100.0: Bilanciato (il tuo standard).
+        # - 150.0: Alto.
+        # - 200.0: Molto Alto. Utile se l'agente "non capisce" che deve abbassare la probabilità.
+        'w_tox': [ 100.0, 150.0, 200.0],
+
+        # 2. w_flip (Jackpot): Quanto vale il successo?
+        # - 100.0: Standard.
+        # - 200.0: Alto.
+        # - 300.0: "SUPER JACKPOT". Dici all'agente: "Non mi importa nulla del resto, FLIPPA QUESTA MOLECOLA".
+        #          Essenziale per sbloccare i casi difficili.
+        'w_flip': [150.0, 200.0, 300.0],
+
+        # 3. w_pen (Soft Penalty): Quanto punire la bassa similarità?
+        # - 5.0: "Libertino". Accetta quasi tutto pur di flippare. (Potrebbe alzare il Success Rate ma abbassare la Sim).
+        # - 10.0: Standard.
+        # - 25.0: Severo.
+        # - 50.0: "Dittatoriale". Costringe l'agente a fare modifiche quasi invisibili.
+        'w_pen': [25.0, 50.0]
+>>>>>>> Stashed changes:generator_hybrid/grid_search_parallel.py
     
     }
     
