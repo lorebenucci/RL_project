@@ -2,7 +2,8 @@ import torch
 import numpy as np
 from rdkit import Chem, DataStructs
 from rdkit.Chem import AllChem, RWMol
-from src.DDQN.utils import *
+from src.DDQN.utils import compute_MW_LogP, mol_to_graph_data
+from src.DDQN.config import LATENT_DIM, W_TOX, W_FLIP, W_PEN
 
 class ChemicalActionSpace:
     def __init__(self):
@@ -24,7 +25,7 @@ class ChemicalActionSpace:
             atoms = list(rw_mol.GetAtoms())
             num_types = len(self.atom_types)
 
-            # AZIONI [0-17]: Aggiunta Atomo (MolDQN logic) [cite: 532, 859]
+            # actions [0-17]: add atom (9 types x 2 valences)
             if action_idx < num_types * 2:
                 is_double = action_idx >= num_types
                 bt = Chem.BondType.DOUBLE if is_double else Chem.BondType.SINGLE
@@ -36,7 +37,7 @@ class ChemicalActionSpace:
                 new_idx = rw_mol.AddAtom(Chem.Atom(atom_sym))
                 rw_mol.AddBond(int(idx), int(new_idx), bt)
 
-            # AZIONI [18-26]: Sostituzione Atomo [cite: 396, 532]
+            # action [18-26]: modify atom type
             elif action_idx < num_types * 3:
                 new_sym = self.atom_types[action_idx % num_types]
                 new_max_val = self.max_valence.get(new_sym, 0)
@@ -48,7 +49,7 @@ class ChemicalActionSpace:
                 target_atom.SetFormalCharge(0)
                 target_atom.SetNoImplicit(False)
 
-            # AZIONI [27-28]: Aggiunta Legame [cite: 534, 862]
+            # action [27-28]: add bond (single/double)
             elif action_idx in [27, 28]:
                 is_double = (action_idx == 28)
                 req_val = 2 if is_double else 1
@@ -61,7 +62,7 @@ class ChemicalActionSpace:
                 i1, i2 = pairs[np.random.randint(0, len(pairs))]
                 rw_mol.AddBond(int(i1), int(i2), bt)
 
-            # AZIONE [29]: Rimozione Legame [cite: 540, 876]
+            # action [29]: remove bond
             elif action_idx == 29:
                 valid_bonds = [b for b in rw_mol.GetBonds() if not b.GetIsAromatic()]
                 if not valid_bonds: return None
@@ -76,7 +77,9 @@ class ChemicalActionSpace:
         except: return None
 
 class MoleculeEnv:
-    def __init__(self, gnn_model, threshold=0.6, max_steps=20, device='cpu',w_tox=W_TOX,w_flip=W_FLIP,w_sim_penalty=W_PEN): # Aumentati steps [cite: 1026]
+    
+    def __init__(self, gnn_model, threshold=0.6, max_steps=20, device='cpu',w_tox=W_TOX,w_flip=W_FLIP,w_sim_penalty=W_PEN):
+       
         self.gnn_model = gnn_model
         self.max_steps = max_steps
         self.device = device
@@ -86,50 +89,57 @@ class MoleculeEnv:
         self.w_tox=w_tox
         self.w_flip=w_flip
         self.w_sim_penalty=w_sim_penalty
+
+
     def _get_toxicity(self, mol):
+
         if not mol: return [0.0]*12, False, None
+        
         x, edge_index, edge_attr = mol_to_graph_data(mol, self.device)
+        
         if x is None: return [0.0]*12, False, None
         batch = torch.zeros(x.shape[0], dtype=torch.long, device=self.device)
         mw_n, logp_n = compute_MW_LogP(mol)
         gf = torch.tensor([[mw_n, logp_n]], dtype=torch.float, device=self.device)
         self.gnn_model.eval()
+        
         with torch.no_grad():
             logits, emb = self.gnn_model(x, edge_index, edge_attr, batch, global_features=gf)
             probs = torch.sigmoid(logits)[0].cpu().numpy()
+
         return probs, np.any(probs > 0.5), emb.cpu()
 
+
+
     def reset(self, specific_smiles):
+        
         self.start_mol = Chem.MolFromSmiles(specific_smiles)
         self.current_mol = Chem.MolFromSmiles(specific_smiles)
         self.visited_states = {Chem.MolToSmiles(self.current_mol, isomericSmiles=True)}
         self.steps, self.previous_sim = 0, 1.0
+        
         Chem.GetSymmSSSR(self.start_mol)
         self.start_rings = self.start_mol.GetRingInfo().NumRings()
         self.start_probs, self.start_is_toxic, self.start_embedding = self._get_toxicity(self.start_mol)
         self.start_max_prob = np.max(self.start_probs)
         self.direction = -1.0 if self.start_is_toxic else 1.0
+        
         return self._get_state_from_embedding(self.start_embedding)
 
+
     def _get_state_from_embedding(self, embedding):
-        """
-        Converte l'embedding della GNN in un vettore numpy per l'agente RL.
-        In caso di errore (embedding None), restituisce un vettore di zeri di dimensione corretta.
-        """
+        
         if embedding is None: 
-            # Usa LATENT_DIM dal file config per garantire la coerenza con la rete neurale
             return np.zeros(LATENT_DIM, dtype=np.float32) 
             
         return embedding.detach().numpy().flatten().astype(np.float32)
 
     def _get_state(self):
-        # Chiama la GNN sulla molecola corrente per ottenere lo stato
         _, _, emb = self._get_toxicity(self.current_mol)
         return self._get_state_from_embedding(emb)
 
     def step(self, action):
         self.steps += 1
-        #reward = -1.0
         if self.steps <= 2:
             reward = -0.5
         elif self.steps <= 5:
@@ -139,20 +149,20 @@ class MoleculeEnv:
             
         new_mol = self.action_space.apply_action(self.current_mol, action)
         
-        # 1. Azione non applicabile o errore chimico
         if new_mol is None: 
             return self._get_state_from_embedding(None), -2.0, self.steps >= self.max_steps, {'valid': False}
         
         try:
             current_smiles = Chem.MolToSmiles(new_mol, isomericSmiles=True)
-            # 2. Stato già visitato (evita loop)
+            
+            # if already visited
             if current_smiles in self.visited_states: 
                 return self._get_state_from_embedding(None), -2.0, self.steps >= self.max_steps, {'valid': False}
             
             self.visited_states.add(current_smiles)
             self.current_mol = new_mol
 
-            # Calcolo Similarità Ibrida e Tanimoto
+            # similarities
             fp_s = AllChem.GetMorganFingerprintAsBitVect(self.start_mol, 1)
             fp_c = AllChem.GetMorganFingerprintAsBitVect(self.current_mol, 1)
             tanimoto = DataStructs.TanimotoSimilarity(fp_s, fp_c)
@@ -160,7 +170,6 @@ class MoleculeEnv:
             cosine = torch.nn.functional.cosine_similarity(self.start_embedding, curr_emb).item()
             hybrid_sim = 0.7 * tanimoto + 0.3  * cosine 
 
-            # Pre-costruzione del dizionario info per garantire coerenza
             info = {
                 'valid': True,
                 'smiles': current_smiles,
@@ -170,33 +179,29 @@ class MoleculeEnv:
                 'direction': "Make SAFE" if self.direction == -1 else "Make TOXIC"
             }
 
-            # 3. Penalità strutturale: Rottura di anelli
+            # broken molecule
             if self.current_mol.GetRingInfo().NumRings() < self.start_rings:
                 return self._get_state_from_embedding(None), -5.0, True, info
 
-            # 4. Terminazione per crollo della similarità
+            # very low similarity
             if hybrid_sim < self.threshold - 0.15: 
                 return self._get_state_from_embedding(curr_emb), -5.0, True, info
 
-            # SOFT PENALTY:
+            # soft penalty
             if hybrid_sim < self.threshold:
-                # Più ti allontani dall'originale, più paghi a ogni step.
-                # Esempio: Sim 0.35 (soglia 0.4) -> Malus -0.5
                 reward -= (self.threshold - hybrid_sim) * self.w_sim_penalty
             
-            # 5. Calcolo Reward del Gradiente
+            # right direction
             delta_tox = (np.max(curr_probs) - self.start_max_prob) * self.direction
             reward += (delta_tox * self.w_tox) if delta_tox > 0 else (delta_tox * 0.0)
 
-            # 6. Verifica Successo (Flip della tossicità)
+            # if flipped
             has_flipped = (not curr_toxic) if self.start_is_toxic else curr_toxic
             done = False
             if has_flipped:
                 
                 if hybrid_sim >= self.threshold:
                     reward += (self.w_flip * (hybrid_sim ** 2)) + 60.0 
-                    
-                    # BONUS EFFICIENZA CONTINUO
                     steps_saved = self.max_steps - self.steps
                     reward += steps_saved * 2.0
                 else: 
@@ -206,11 +211,9 @@ class MoleculeEnv:
                 info['flipped'] = True
                 done = True
             else: 
-                #reward += 10.0 #add this
                 done = (self.steps >= self.max_steps)
 
             return self._get_state_from_embedding(curr_emb), reward, done, info
 
         except Exception as e:
-            # Fallback in caso di errore imprevisto durante il calcolo delle proprietà
             return self._get_state_from_embedding(None), -3.0, self.steps >= self.max_steps, {'valid': False}

@@ -1,13 +1,16 @@
 import torch
-import torch.nn as nn
 import torch.optim as optim
 import torch.nn.functional as F
 import numpy as np
 import random
-from src.DDQN.config import *
 from src.DDQN.utils import *
-from src.DDQN.model import DuelingDQN, WeightedReplayBuffer
-from src.DDQN.config import EPOCHS_AGENT, BATCH_SIZE_RL_AGENT, LR_GENERATOR, GAMMA, DEVICE, AGENT_PATH
+from src.DDQN.model import WeightedReplayBuffer
+from src.DDQN.config import EPOCHS_AGENT, DEVICE, AGENT_PATH
+
+
+
+"""
+# NOT USED IN OUR FINAL VERSION
 
 def create_lr_scheduler(optimizer, num_train_steps, warmup_steps):
     
@@ -30,7 +33,7 @@ def create_lr_scheduler(optimizer, num_train_steps, warmup_steps):
     )
     return lr_scheduler
 
-
+"""
 
 
 def train_agent(p_model,t_model, env, smiles_list, batch_size=64, lr=1e-4,gamma=0.99):
@@ -43,15 +46,8 @@ def train_agent(p_model,t_model, env, smiles_list, batch_size=64, lr=1e-4,gamma=
 
     target_net.load_state_dict(policy_net.state_dict())
     
-    #steps_per_epoch = len(smiles_list)
-    #total_steps = EPOCHS_AGENT * steps_per_epoch
-    #warmup_steps = int(total_steps * 0.20) 
-    
     optimizer = optim.Adam(policy_net.parameters(), lr=lr)
     memory = WeightedReplayBuffer(10000)
-    
-
-    #scheduler = create_lr_scheduler(optimizer, total_steps, warmup_steps)
     
     epsilon, epsilon_decay, tau = 1.0, 0.996, 0.005 
     best_avg_reward = -float('inf')
@@ -72,10 +68,6 @@ def train_agent(p_model,t_model, env, smiles_list, batch_size=64, lr=1e-4,gamma=
             next_state, reward, done, info = env.step(action)
             memory.push(state, action, reward, next_state, done)
             
-            # Oversampling per successi (MEG logic)
-           # if done and info.get('flipped', False):
-            #    for _ in range(5): memory.push(state, action, reward, next_state, done)
-            
             state, total_reward = next_state, total_reward + reward
 
             if len(memory) > batch_size:
@@ -86,7 +78,6 @@ def train_agent(p_model,t_model, env, smiles_list, batch_size=64, lr=1e-4,gamma=
                 d_t = torch.FloatTensor(d).view(-1, 1).to(device)
                 weights_tensor = torch.FloatTensor(weights).to(device).unsqueeze(1)
                 
-                # Double DQN logic
                 curr_Q = policy_net(s_t).gather(1, a_t)
                 with torch.no_grad():
                     next_a = policy_net(ns_t).argmax(1, keepdim=True)
@@ -100,11 +91,7 @@ def train_agent(p_model,t_model, env, smiles_list, batch_size=64, lr=1e-4,gamma=
                 loss.backward()
                 torch.nn.utils.clip_grad_norm_(policy_net.parameters(), 1.0)
                 optimizer.step()
-                
-                #add scheduler
-                #scheduler.step()
-
-                # Soft update Target Net
+ 
                 for tp, lp in zip(target_net.parameters(), policy_net.parameters()):
                     tp.data.copy_(tau * lp.data + (1.0 - tau) * tp.data)
 

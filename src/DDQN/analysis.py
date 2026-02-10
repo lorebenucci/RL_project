@@ -8,6 +8,12 @@ import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
 from rdkit.Chem.Scaffolds import MurckoScaffold
+from rdkit.Chem import RDConfig
+import os
+import sys
+sys.path.append(os.path.join(RDConfig.RDContribDir, 'SA_Score'))
+import sascorer
+import numpy as np
 
 def compare_4_molecules_diff_highlight(smiles_list, names_list=None):
     """
@@ -348,11 +354,9 @@ def analyze_actions_distribution(stats):
 
 #import SA_SCORE
 try:
-    from rdkit.Chem import RDConfig
-    import os
-    import sys
+    
     sys.path.append(os.path.join(RDConfig.RDContribDir, 'SA_Score'))
-    import sascorer
+    
     HAS_SASCORE = True
 except ImportError:
     HAS_SASCORE = False

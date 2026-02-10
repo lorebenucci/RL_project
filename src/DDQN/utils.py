@@ -5,11 +5,9 @@ import numpy as np
 import os
 import sys
 import random
-from rdkit import Chem, DataStructs, RDConfig
-from rdkit.Chem import AllChem, RWMol, ChemicalFeatures,Descriptors
-from  src.DDQN.config import *
-from src.DDQN.config import RANDOM_SEED
-
+from rdkit import Chem, RDConfig
+from rdkit.Chem import ChemicalFeatures,Descriptors
+from  src.DDQN.config import TYPE_ATOMS, HYBRIDIZATION_TYPE, NUMBER_HYDROGENS, ATOM_DEGREE, PERMITTED_BONDS, STEREO_LIST, FORMAL_CHARGES, MEAN_MW, STD_MW, MEAN_LOGP, STD_LOGP
 
 def set_seed(seed):
     random.seed(seed)
@@ -21,13 +19,13 @@ def set_seed(seed):
 
 
 # 1. Ottieni il percorso assoluto della cartella corrente (generator)
-current_dir = os.path.dirname(os.path.abspath(__file__))
+#current_dir = os.path.dirname(os.path.abspath(__file__))
 
 # 2. Risali alla cartella genitore (RL_project)
-project_root = os.path.dirname(current_dir)
+#project_root = os.path.dirname(current_dir)
 
 # 3. Aggiungi la root al path di Python
-sys.path.append(project_root)
+#sys.path.append(project_root)
 
 
 fdefName = os.path.join(RDConfig.RDDataDir, 'BaseFeatures.fdef')

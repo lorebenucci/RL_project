@@ -3,28 +3,24 @@ import numpy as np
 from rdkit import Chem
 
 
-def evaluate_model(agent, env, test_smiles_list, device='cpu', verbose=True, attempts=10):
-    if verbose: print(f"\n--- Evaluation (Multi-Task Flip & Similarity) | Attempts per mol: {attempts} ---")
+def evaluate_model(agent, env, test_smiles_list, device='cpu', attempts=10):
+    print(f"\n--- Starting Evaluation ---")
     
     agent.eval()
     
-    # Define statistics
     stats = {
         'total': 0,
-        'success_strict': 0, # Flip + Hybrid Sim >= 0.6
-        'success_loose': 0,  # Only Flip
+        'success_strict': 0, # flip + Hybrid Sim >= 0.6
+        'success_loose': 0,  # only Flip
         
-        # LISTE PER TUTTI (Globali)
         'all_similarity': [], 
         'all_tanimoto': [],
         'all_steps': [],
 
-        # LISTE SOLO PER I SUCCESSI (Quality of Counterfactuals)
         'success_similarity': [],
         'success_tanimoto': [],
         'success_steps': [],
         
-        #liste di miglior success flippati con highest Hybrid similarity
         'success_flip_fromtox_to_notox': [],
         'success_flip_from_notox_totox': []
     }
@@ -60,13 +56,13 @@ def evaluate_model(agent, env, test_smiles_list, device='cpu', verbose=True, att
                 step_count += 1
                 if step_count >= env.max_steps: done = True 
             
-            # --- ANALISI ---
+            
             final_smiles = env.current_mol
             
             if final_smiles:
                 final_probs, final_toxic, _ = env._get_toxicity(final_smiles)
                 has_flipped = (not final_toxic) if start_toxic else (final_toxic)
-                is_similar = final_sim_hybrid >= 0.6 # Soglia paper
+                is_similar = final_sim_hybrid >= 0.6 # paper threshold
                 
                 current_priority = 0
                 if has_flipped:
@@ -105,49 +101,52 @@ def evaluate_model(agent, env, test_smiles_list, device='cpu', verbose=True, att
                 if best_run_data is None:
                     best_run_data = {'sim': 0.0, 'tanimoto': 0.0, 'steps': step_count, 'flipped': False, 'strict': False, 'priority': 0}
 
-        # --- AGGIORNAMENTO STATISTICHE ---
+        
         if best_run_data:
-            # 1. Metriche Globali
+            # global metrics
             stats['all_similarity'].append(best_run_data['sim'])
             stats['all_tanimoto'].append(best_run_data['tanimoto'])
             stats['all_steps'].append(best_run_data['steps'])
 
-            # 2. Metriche Successi (SOLO se ha flippato)
+            # only if flipped
             if best_run_data['flipped']:
+
                 stats['success_loose'] += 1
                 stats['success_similarity'].append(best_run_data['sim'])
                 stats['success_tanimoto'].append(best_run_data['tanimoto'])
                 stats['success_steps'].append(best_run_data['steps'])
                 stats['success_flip_fromtox_to_notox'].extend(best_run_data['list_fromtox_notox'])
                 stats['success_flip_from_notox_totox'].extend(best_run_data['list_fromnotox_tox'])
+                
                 if best_run_data['strict']:
                     stats['success_strict'] += 1
             
-    # --- CALCOLI FINALI ---
+    
     accuracy_strict = stats['success_strict'] / stats['total'] if stats['total'] > 0 else 0
     accuracy_loose = stats['success_loose'] / stats['total'] if stats['total'] > 0 else 0
     
-    # Medie Globali
+    # global means
     mean_sim_all = np.mean(stats['all_similarity']) if stats['all_similarity'] else 0
     mean_tani_all = np.mean(stats['all_tanimoto']) if stats['all_tanimoto'] else 0
     
-    # Medie Successi (IMPORTANTE)
+    # valid counterfactuals means
     mean_sim_success = np.mean(stats['success_similarity']) if stats['success_similarity'] else 0
     mean_tani_success = np.mean(stats['success_tanimoto']) if stats['success_tanimoto'] else 0
     mean_steps_success = np.mean(stats['success_steps']) if stats['success_steps'] else 0
        
     print("\n" + "="*60)
-    print(f"SUMMARY EVALUATION ({stats['total']} mols, {attempts} attempts/mol):")
+    print(f"Final Evaluation ({stats['total']} mols, {attempts} attempts/mol):")
     print(f"Strict Success Rate (Flip + Sim>=0.6):  {accuracy_strict:.2%}")
     print(f"Loose Success Rate (Any Flip):          {accuracy_loose:.2%}")
     print("-" * 60)
-    print("METRICHE SUI SUCCESSI (Counterfactuals Validi):")
-    print(f"  > Avg Tanimoto (on Success):          {mean_tani_success:.3f}")
-    print(f"  > Avg Hybrid Sim (on Success):        {mean_sim_success:.3f}")
-    print(f"  > Avg Steps (on Success):             {mean_steps_success:.1f}")
+    print("On Valid counter-factuals:")
+    print(f"  - Avg Tanimoto (on Success):          {mean_tani_success:.3f}")
+    print(f"  - Avg Hybrid Sim (on Success):        {mean_sim_success:.3f}")
+    print(f"  - Avg Steps (on Success):             {mean_steps_success:.1f}")
     print("-" * 60)
-    print("Metriche Globali (inclusi fallimenti):")
-    print(f"  > Avg Tanimoto (All):                 {mean_tani_all:.3f}")
+    print("Including failures:")
+    print(f"  - Avg Tanimoto (All):                 {mean_tani_all:.3f}")
+    print(f"  - Avg Hybrid Sim (All):               {mean_sim_all:.3f}")
     print("="*60 + "\n")
     
     return stats
