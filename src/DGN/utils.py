@@ -1,10 +1,8 @@
-# UTILS
+# DGN UTILS
 import os
 import random
 import numpy as np
 import torch
-from src.DGN.config import RANDOM_SEED
-
 
 def set_seed(seed):
     random.seed(seed)
@@ -12,7 +10,7 @@ def set_seed(seed):
     np.random.seed(seed)
     torch.manual_seed(seed)
     torch.cuda.manual_seed(seed)
-set_seed(RANDOM_SEED)
+
 
 
 def apply_masks(batch,out,criterion):

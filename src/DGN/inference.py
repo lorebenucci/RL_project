@@ -13,7 +13,7 @@ def get_predictions(model,device, test_loader):
         for batch in tqdm(test_loader, desc="Testing"):
             
             batch = batch.to(device)
-            logits = model(batch.x, batch.edge_index,batch.edge_attr, batch.batch, batch.global_feat)
+            logits, _ = model(batch.x, batch.edge_index,batch.edge_attr, batch.batch, batch.global_feat)
             probs = torch.sigmoid(logits)
             all_probs.append(probs.cpu())
             all_targets.append(batch.y.cpu())

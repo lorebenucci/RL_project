@@ -98,4 +98,4 @@ class Tox21GNN(nn.Module):
         # classification
         logits = self.classifier(x_final) 
         
-        return logits
+        return logits, x_final
