@@ -7,7 +7,7 @@ from rdkit import Chem
 
 
 
-AGENT_PATH="./weights/DDQN/best_DDQN1.pth"
+AGENT_PATH="./weights/DDQN/best_DDQN.pth"
 DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 NUM_WORKERS = 4
 PRE_LOAD_BATCH=4
