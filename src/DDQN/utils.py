@@ -5,10 +5,10 @@ import numpy as np
 import os
 import sys
 import random
-from src.DDQN.config import RANDOM_SEED
 from rdkit import Chem, DataStructs, RDConfig
 from rdkit.Chem import AllChem, RWMol, ChemicalFeatures,Descriptors
-from  config import *
+from  src.DDQN.config import *
+from src.DDQN.config import RANDOM_SEED
 
 
 def set_seed(seed):

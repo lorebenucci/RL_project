@@ -2,7 +2,7 @@ import torch
 import numpy as np
 from rdkit import Chem, DataStructs
 from rdkit.Chem import AllChem, RWMol
-from utils import *
+from src.DDQN.utils import *
 
 class ChemicalActionSpace:
     def __init__(self):

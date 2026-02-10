@@ -4,10 +4,10 @@ import torch.optim as optim
 import torch.nn.functional as F
 import numpy as np
 import random
-from config import *
-from utils import *
+from src.DDQN.config import *
+from src.DDQN.utils import *
 from src.DDQN.model import DuelingDQN, WeightedReplayBuffer
-from config import EPOCHS_AGENT, BATCH_SIZE_RL_AGENT, LR_GENERATOR, GAMMA, DEVICE, AGENT_PATH
+from src.DDQN.config import EPOCHS_AGENT, BATCH_SIZE_RL_AGENT, LR_GENERATOR, GAMMA, DEVICE, AGENT_PATH
 
 def create_lr_scheduler(optimizer, num_train_steps, warmup_steps):
     

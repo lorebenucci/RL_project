@@ -2,9 +2,6 @@ import torch
 import numpy as np
 from rdkit import Chem
 
-import torch
-import numpy as np
-from rdkit import Chem
 
 def evaluate_model(agent, env, test_smiles_list, device='cpu', verbose=True, attempts=10):
     if verbose: print(f"\n--- Evaluation (Multi-Task Flip & Similarity) | Attempts per mol: {attempts} ---")
