@@ -6,7 +6,7 @@ import numpy as np
 import random
 from collections import deque
 from config import *
-from utils import *
+from generator_hybrid.utils import *
 class DuelingDQN(nn.Module):
     def __init__(self, input_dim, output_dim, hidden_dim=1024):
         super(DuelingDQN, self).__init__()
