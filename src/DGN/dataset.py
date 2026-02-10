@@ -63,11 +63,11 @@ class Dataset_tox21(Dataset):
         # chirality
         try:
             chirality = atom.GetProp('_CIPCode')
-            if chirality == 'R': atom_feature += [1, 0, 0] # R
-            elif chirality == 'S': atom_feature += [0, 1, 0] # S
-            else: atom_feature += [0, 0, 1] # none
+            if chirality == 'R': atom_feature += [1, 0, 0]
+            elif chirality == 'S': atom_feature += [0, 1, 0] 
+            else: atom_feature += [0, 0, 1] 
         except:
-            atom_feature += [0, 0, 1] # Any defined (none)
+            atom_feature += [0, 0, 1]
         
         # formal charge (-2, -1, 0, +1, +2)   
         formal_charge = atom.GetFormalCharge()
@@ -82,11 +82,11 @@ class Dataset_tox21(Dataset):
         
         bond_feature = []
         
-        bond_type = bond.GetBondType() #extract type of bond (SINGLE, DOUBLE, TRIPLE, AROMATIC)
+        bond_type = bond.GetBondType()
         bond_feature += one_hot_encoding(bond_type, self.permitted_bonds)
-        bond_feature += [1 if bond.GetIsConjugated() else 0] # is Conjugated? (Boolean)
-        bond_feature += [1 if bond.IsInRing() else 0] # is in ring ? (Boolean)
-        stereo = bond.GetStereo() # stereochemistry
+        bond_feature += [1 if bond.GetIsConjugated() else 0] 
+        bond_feature += [1 if bond.IsInRing() else 0] 
+        stereo = bond.GetStereo()
         bond_feature += one_hot_encoding(stereo, self.stereo_list)
 
         return torch.tensor(bond_feature, dtype=torch.float)
