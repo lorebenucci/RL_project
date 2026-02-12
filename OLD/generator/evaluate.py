@@ -14,7 +14,11 @@ def evaluate_model(agent, env, test_smiles_list, device='cpu',verbose=True):
         'success_strict': 0, # Flip + Similarity > 0.4
         'success_loose': 0,  # Only flip
         'avg_similarity': [],
-        'avg_steps': []
+        'avg_steps': [],
+        
+        #liste di miglior success flippati con highest Hybrid similarity
+        'success_flip_fromtox_to_notox': [],
+        'success_flip_from_notox_totox': []
     }
     
  
@@ -39,7 +43,10 @@ def evaluate_model(agent, env, test_smiles_list, device='cpu',verbose=True):
         trajectory = [start_smiles]
         step_count = 0
         final_sim = 1.0 # Default se non fa nulla
-        
+            
+           
+        list_fromtox_notox=[]
+        list_fromnotox_tox=[]
         while not done:
             
             #Policy Greedy (Argmax)
@@ -81,9 +88,19 @@ def evaluate_model(agent, env, test_smiles_list, device='cpu',verbose=True):
                 stats['success_loose']+=1
                 if is_similar:
                     stats['success_strict'] += 1
-            
+                    
+                    if start_toxic:
+                        list_fromtox_notox.append((start_smiles,Chem.MolToSmiles(final_smiles),final_sim))
+                    else:
+                        list_fromnotox_tox.append((start_smiles,Chem.MolToSmiles(final_smiles),final_sim))
+                 
             stats['avg_similarity'].append(final_sim)
             stats['avg_steps'].append(step_count)
+            
+            
+            #stats success... 
+            stats['success_flip_fromtox_to_notox'].extend(list_fromtox_notox)
+            stats['success_flip_from_notox_totox'].extend(list_fromnotox_tox)
             
             if verbose:
                 

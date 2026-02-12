@@ -1,4 +1,3 @@
-
 from rdkit import Chem
 from rdkit.Chem import AllChem,rdFMCS, QED, Crippen, Descriptors
 import py3Dmol
@@ -94,9 +93,9 @@ def compare_4_molecules_diff_highlight(smiles_list, names_list=None):
                     atom = mol.GetAtomWithIdx(idx)
                     symbol = atom.GetSymbol()
                     # Evitiamo di etichettare tutti gli Idrogeni per non fare confusione, a meno che non siano fondamentali
-                    if symbol != 'H': 
-                        pos = conf.GetAtomPosition(idx)
-                        view.addLabel(symbol, 
+                    #if symbol != 'H': 
+                    pos = conf.GetAtomPosition(idx)
+                    view.addLabel(symbol, 
                                       {'position': {'x': pos.x, 'y': pos.y, 'z': pos.z}, 
                                        'backgroundColor': diff_color, 
                                        'fontColor': 'black'
@@ -133,7 +132,7 @@ def compare_4_molecules_diff_highlight(smiles_list, names_list=None):
     # --- RENDER E SALVATAGGIO ---
     view.zoomTo()
     
-    output_file = "Diff_Analysis_1.html"
+    output_file = "Diff_Analysis_1_try.html"
     html_content = view._make_html()
     
     with open(output_file, "w") as f:
@@ -142,7 +141,6 @@ def compare_4_molecules_diff_highlight(smiles_list, names_list=None):
     print(f"Generato report visuale: {output_file}")
     
     # Percorso assoluto per apertura sicura
-    #file_path = "file://" + os.path.realpath(output_file)
     webbrowser.open(output_file)
 
 
@@ -173,6 +171,7 @@ def analysis(stats):
     compare_4_molecules_diff_highlight(smiles_input, labels)
     print("Hybrid_similarity of Streptozocina(originale)",max_notox[2])
     print("Hybrid_similarity Tilosina (Origine)",max_tox[2])
+    
     #Hybrid_similarity of Streptozocina(originale) 0.9146143350601197
     #Hybrid_similarity Tilosina (Origine) 0.9346017826687205
     #ANALYZE ACTION DITRIBUTION

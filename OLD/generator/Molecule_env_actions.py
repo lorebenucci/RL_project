@@ -166,15 +166,15 @@ class MoleculeEnv:
         new_mol = self.action_space.apply_action(self.current_mol, action)
         
         if new_mol is None:
-            return self._get_state(), -2.0, self.steps >= self.max_steps, {'valid': False}
+            return self._get_state(), -2.0, self.steps >= self.max_steps, {'valid': False,'smiles':None}
         
         try:
             current_smiles = Chem.MolToSmiles(new_mol, isomericSmiles=True)
         except:
-            return self._get_state(), -3.0, self.steps >= self.max_steps, {'valid': False}
+            return self._get_state(), -3.0, self.steps >= self.max_steps, {'valid': False,'smiles':None}
         
         if current_smiles in self.visited_states:
-            return self._get_state(), -3.0, self.steps >= self.max_steps, {'valid': False}
+            return self._get_state(), -3.0, self.steps >= self.max_steps, {'valid': False,'smiles':None}
         
         self.visited_states.add(current_smiles)
         self.current_mol = new_mol
@@ -182,7 +182,7 @@ class MoleculeEnv:
         # Vincolo: non distruggere anelli esistenti
         Chem.GetSymmSSSR(self.current_mol)
         if self.current_mol.GetRingInfo().NumRings() < self.start_rings:
-            return self._get_state(), -3.0, True, {'valid': True, 'flipped': False}
+            return self._get_state(), -3.0, True, {'valid': True, 'flipped': False,'smiles':current_smiles}
 
         # Calcolo Similarità Tanimoto
         try:
@@ -192,7 +192,7 @@ class MoleculeEnv:
         except: sim = 0.0
         
         if sim < self.threshold - 0.2:
-            return self._get_state(), -3.0, True, {'valid': True, 'sim': sim}
+            return self._get_state(), -3.0, True, {'valid': True, 'sim': sim,'smiles':current_smiles}
         
         # Penalità se troppo diverso dalla struttura originale
         if sim < self.threshold: reward -= (self.threshold - sim) * 20.0

@@ -10,20 +10,18 @@ import matplotlib.pyplot as plt
 from rdkit.Chem.Scaffolds import MurckoScaffold
 
 def compare_4_molecules_diff_highlight(smiles_list, names_list=None):
-    """
-    Visualizza 4 molecole (2 transizioni) evidenziando le differenze chimiche.
-    """
+   
     
     if names_list is None or len(names_list) != 4:
         names_list = ["Tossica (A)", "Non Tossica (A)", "Non Tossica (B)", "Tossica (B)"]
 
-    # Griglia 2x2
+    #GRID 2X2 for 2 flipped molecule (TOX(ORIGIN)->NOTOX(DEST) AND NOTOX(ORIGIN)->TOX(DEST))
     view = py3Dmol.view(width=1200, height=900, viewergrid=(2, 2))
 
+    
+    #Process a couple of molecule and it is placed on specific row
     def process_pair(smiles_start, smiles_end, row):
-        """Processa una coppia di molecole (Start -> End) e le mette nella riga specifica"""
         
-        # 1. Creazione Molecole
         mol_start = Chem.MolFromSmiles(smiles_start)
         mol_end = Chem.MolFromSmiles(smiles_end)
         
@@ -31,11 +29,11 @@ def compare_4_molecules_diff_highlight(smiles_list, names_list=None):
             print(f"Errore nella generazione delle molecole alla riga {row}")
             return
 
-        # Aggiunta Idrogeni (importante per il 3D)
+        #ADD Hyrogens
         mol_start = Chem.AddHs(mol_start)
         mol_end = Chem.AddHs(mol_end)
 
-        # 2. Generazione 3D
+        #3D Generated
         AllChem.EmbedMolecule(mol_start, AllChem.ETKDG())
         AllChem.EmbedMolecule(mol_end, AllChem.ETKDG())
         try:
@@ -43,67 +41,64 @@ def compare_4_molecules_diff_highlight(smiles_list, names_list=None):
             AllChem.MMFFOptimizeMolecule(mol_end)
         except: pass
 
-        # 3. Trova la parte comune (MCS) per capire cosa è cambiato
-        # Usiamo solo atomi pesanti per il confronto strutturale per evitare confusione con gli H
+        #(MCS) find similairty scaffold evaluating Number/Type of atoms 
         mcs = rdFMCS.FindMCS([mol_start, mol_end], 
                              completeRingsOnly=True, 
-                             atomCompare=rdFMCS.AtomCompare.CompareAny) # CompareAny permette di allineare scheletri simili
+                             atomCompare=rdFMCS.AtomCompare.CompareAny) # CompareAny
+        
         
         common_substructure = Chem.MolFromSmarts(mcs.smartsString)
 
-        # 4. Trova gli indici degli atomi che SONO DIVERSI (non matchano la parte comune)
+        #match start and  match end of principal Molecule Scaffold 
         match_start = mol_start.GetSubstructMatch(common_substructure)
         match_end = mol_end.GetSubstructMatch(common_substructure)
 
-        # Indici di tutti gli atomi
         all_idxs_start = set(range(mol_start.GetNumAtoms()))
         all_idxs_end = set(range(mol_end.GetNumAtoms()))
 
-        # Gli atomi diversi sono quelli TOTALI meno quelli COMUNI
-        diff_start = list(all_idxs_start - set(match_start)) # Atomi persi
-        diff_end = list(all_idxs_end - set(match_end))       # Atomi guadagnati/cambiati
+        #compute diff atoms
+        diff_start = list(all_idxs_start - set(match_start)) # Lost atoms
+        diff_end = list(all_idxs_end - set(match_end))       # Gained atoms
 
-        # 5. Allineamento (Opzionale ma consigliato): Ruota mol_end su mol_start
+        #Align Mole
         if match_end and match_start:
              try:
                  AllChem.AlignMol(mol_end, mol_start, atomMap=list(zip(match_end, match_start)))
              except: pass
 
-        # --- AGGIUNTA AL VIEWER ---
+        #PLot
         
-        # Funzione interna per aggiungere modello e stile
+        # add model molecule and style
         def add_single_mol(mol, r, c, name, diff_indices, color_base, diff_color="0xFF00FF"):
             block = Chem.MolToMolBlock(mol)
             view.addModel(block, 'mol', viewer=(r, c))
             
-            # Stile Base (tutta la molecola)
+           
             view.setStyle({'stick': {'colorscheme': 'greenCarbon', 'radius': 0.15}}, viewer=(r, c))
             
-            # Stile Evidenziato (solo atomi diversi)
-            # Creiamo una lista di stili per gli atomi specifici
+            # Highlight style (only different atoms)
             if diff_indices:
-                # Evidenzia gli atomi cambiati con sfere più grandi e colore diverso
+                #highlights differents atoms and changed bond
                 view.addStyle({'index': diff_indices}, 
                               {'stick': {'color': diff_color, 'radius': 5}, 
                                'sphere': {'color': diff_color, 'radius': 0.4}}, 
                               viewer=(r, c))
                 
-                # Aggiungi etichette (Labels) sugli atomi cambiati
+                # ADD LABELS TO THE ATOMS
                 conf = mol.GetConformer()
                 for idx in diff_indices:
                     atom = mol.GetAtomWithIdx(idx)
                     symbol = atom.GetSymbol()
-                    # Evitiamo di etichettare tutti gli Idrogeni per non fare confusione, a meno che non siano fondamentali
-                    if symbol != 'H': 
-                        pos = conf.GetAtomPosition(idx)
-                        view.addLabel(symbol, 
+        
+                    pos = conf.GetAtomPosition(idx)
+                    view.addLabel(symbol, 
                                       {'position': {'x': pos.x, 'y': pos.y, 'z': pos.z}, 
                                        'backgroundColor': diff_color, 
                                        'fontColor': 'black'
                                        },
                                       viewer=(r, c))
 
-            # Titolo Pannello
+            #Panel title
             bg_title = "#b93e3e" if "red" in color_base else "#6de26d"
             view.addLabel(name, 
                           {'position': {'x': -2, 'y': 5, 'z': 0}, 
@@ -111,29 +106,27 @@ def compare_4_molecules_diff_highlight(smiles_list, names_list=None):
                            'fontColor': 'black'}, 
                           viewer=(r, c))
 
-        # Pannello Sinistro (Start)
-        # Differenze in GIALLO/ORO per indicare "questo sta per cambiare"
+        #Left Panel (Start)
         add_single_mol(mol_start, row, 0, names_list[row*2], diff_start, 
                        'redCarbon' if row==0 else 'greenCarbon', 
                        diff_color="gold") 
 
-        # Pannello Destro (End)
-        # Differenze in MAGENTA per indicare "questo è il nuovo gruppo"
+        #Right Panel (End)
         add_single_mol(mol_end, row, 1, names_list[row*2+1], diff_end, 
                        'greenCarbon' if row==0 else 'redCarbon', 
                        diff_color="magenta")
 
-    # --- ESECUZIONE ---
-    # Riga 1: Tossica A -> Sicura A
+    #PROCESS + PLOT
+    # Row 1: Tox A -> Safe A
     process_pair(smiles_list[0], smiles_list[1], 0)
     
-    # Riga 2: Sicura B -> Tossica B
+    # row 2: Safe B -> TOX B
     process_pair(smiles_list[2], smiles_list[3], 1)
 
-    # --- RENDER E SALVATAGGIO ---
+    
     view.zoomTo()
     
-    output_file = "Diff_Analysis_1.html"
+    output_file = "Diff_Analysis_Report.html"
     html_content = view._make_html()
     
     with open(output_file, "w") as f:
@@ -142,7 +135,6 @@ def compare_4_molecules_diff_highlight(smiles_list, names_list=None):
     print(f"Generato report visuale: {output_file}")
     
     # Percorso assoluto per apertura sicura
-    #file_path = "file://" + os.path.realpath(output_file)
     webbrowser.open(output_file)
 
 
@@ -152,18 +144,13 @@ def compare_4_molecules_diff_highlight(smiles_list, names_list=None):
 
 def analysis(stats):
     
-    #PLOT IN 3D MOLECULE BEFORE->AFTER THE FLIPP
+    #PLOT IN 3D MOLECULE BEFORE->AFTER THE FLIP
+    
     #max no tox and maxtox
     max_notox= max(stats["success_flip_fromtox_to_notox"], key=lambda x: x[2])
     max_tox=max(stats['success_flip_from_notox_totox'], key=lambda x: x[2])
     
     smiles_input=[max_notox[0],max_notox[1],max_tox[0],max_tox[1]]
-    print
-    print("best_smiles found\n")
-    print(f"{smiles_input[0]}+\n")
-    print(f"{smiles_input[1]}+\n")
-    print(f"{smiles_input[2]}+\n")
-    print(f"{smiles_input[3]}+\n")
     
           
     labels = [
@@ -173,56 +160,53 @@ def analysis(stats):
     compare_4_molecules_diff_highlight(smiles_input, labels)
     print("Hybrid_similarity of Streptozocina(originale)",max_notox[2])
     print("Hybrid_similarity Tilosina (Origine)",max_tox[2])
-    #Hybrid_similarity of Streptozocina(originale) 0.9146143350601197
-    #Hybrid_similarity Tilosina (Origine) 0.9346017826687205
-    #ANALYZE ACTION DITRIBUTION
+    
+    #ANALYZE ACTION DITRIBUTION on all strict success molecules
     analyze_actions_distribution(stats)
     
-    #ANALYZE PROPERTIES PRESERVATION
+    #ANALYZE PROPERTY PRESERVATION on all strict success molecules [qed,mw,sa_score,LogP]
     analyze_property_preservation(stats)
     
-    #ANALYZE SCAFFOLD PRESERVATION
+    #ANALYZE SCAFFOLD PRESERVATION on all strict success molecules
     analyze_scaffold_preservation(stats)
     
     
 
+
 def classify_transformation_action_based(smiles_start, smiles_end):
-    """
-    Classifica la trasformazione basandosi rigorosamente sulle azioni 
-    disponibili in ChemicalActionSpace (Molecule_env_actions.py).
-    """
+
     mol_start = Chem.MolFromSmiles(smiles_start)
     mol_end = Chem.MolFromSmiles(smiles_end)
     
     if not mol_start or not mol_end: return "Errore Parsing"
 
-    # 1. Conta Atomi (Solo Pesanti, ignoriamo H per ora)
+    #counts atoms
     atoms_start = Counter([atom.GetSymbol() for atom in mol_start.GetAtoms()])
     atoms_end = Counter([atom.GetSymbol() for atom in mol_end.GetAtoms()])
     
-    # 2. Calcola Differenza Netta
+    #observe difference after the flip
     diff = atoms_end.copy()
     diff.subtract(atoms_start)
-    # Rimuovi i conteggi a zero (atomi invariati)
+  
     diff = {k: v for k, v in diff.items() if v != 0}
     
-    # Liste di atomi aggiunti e rimossi
+    # List of added atoms and removed atoms
     added = [k for k, v in diff.items() if v > 0]
     removed = [k for k, v in diff.items() if v < 0]
 
-    # --- LOGICA DI CLASSIFICAZIONE (Mapping sulle Azioni Reali) ---
-
-    # CASO 1: Nessuna variazione di composizione atomica (diff è vuoto)
-    # Corrisponde alle Azioni 27-29: Add Bond / Remove Bond
+   
+    #MAPPING ACTIONS
+    # Case 1: No variation of chemical composition
+    #it is defined with application of Add Bond / Remove Bond
     if not diff:
-        # Calcoliamo info sui legami e anelli
+        
         bonds_start = mol_start.GetNumBonds()
         bonds_end = mol_end.GetNumBonds()
         
         rings_start = mol_start.GetRingInfo().NumRings()
         rings_end = mol_end.GetRingInfo().NumRings()
         
-        # Helper per contare i tipi di legame (Single vs Double)
+        #Helper function to count type of links (Single vs Double)
         def count_bond_types(mol):
             cnt = {Chem.BondType.SINGLE: 0, Chem.BondType.DOUBLE: 0, 
                    Chem.BondType.TRIPLE: 0, Chem.BondType.AROMATIC: 0}
@@ -234,10 +218,9 @@ def classify_transformation_action_based(smiles_start, smiles_end):
         bt_start = count_bond_types(mol_start)
         bt_end = count_bond_types(mol_end)
 
-        # Sottocaso A: Aggiunta Legame (Azioni 27, 28)
-        # In questo env, aggiungere un legame crea sempre un nuovo anello (Ciclizzazione)
+        #SubCase 1: ADD Links creating a new ring
         if bonds_end > bonds_start:
-            # Controlliamo quale tipo è aumentato
+           
             if bt_end[Chem.BondType.DOUBLE] > bt_start[Chem.BondType.DOUBLE]:
                 return "Ciclizzazione (Aggiunta Legame DOPPIO)"
             elif bt_end[Chem.BondType.SINGLE] > bt_start[Chem.BondType.SINGLE]:
@@ -245,34 +228,28 @@ def classify_transformation_action_based(smiles_start, smiles_end):
             else:
                 return "Ciclizzazione (Aggiunta Legame AROM/ALTRO)"
 
-        # Sottocaso B: Rimozione Legame (Azione 29)
-        # In questo env, rimuovere un legame apre un anello (Deciclizzazione)
+        #SubCase 2: remotion of bond openining a cycle
         elif bonds_end < bonds_start:
             return "Apertura Anello (Rimozione Legame)"
             
-        
-
-    # CASO 2: Solo Aggiunta (Nessuna rimozione)
-    # Corrisponde alle Azioni 0-17: Add Atom
+    # CASE 2: adding an atom
     if added and not removed:
-        # Se è stato aggiunto 1 solo tipo di atomo (come previsto dall'env)
         if len(added) == 1:
             atom_type = added[0]
             count = diff[atom_type]
             if count == 1:
                 return f"Aggiunta Atomo (+{atom_type})"
             else:
-                return f"Aggiunta Multipla (+{count} {atom_type})" # Raro in 1 step
+                return f"Aggiunta Multipla (+{count} {atom_type})" 
 
-    # CASO 3: Sostituzione (1 entra, 1 esce)
-    # Corrisponde alle Azioni 18-26: Substitute Atom
+    # CASO 3: sostitution (1 atom <-> 1 atom)
     if len(added) == 1 and len(removed) == 1:
         in_atom = added[0]
         out_atom = removed[0]
         
-        # Check quantità (deve essere 1 a 1 per una singola azione)
+      
         if diff[in_atom] == 1 and diff[out_atom] == -1:
-            # Sottocategorie utili per l'analisi qualitativa
+            
             if out_atom == 'C' and in_atom == 'N': return "Bioisosteria (C -> N)"
             if out_atom == 'N' and in_atom == 'C': return "Bioisosteria (N -> C)"
             if out_atom == 'O' and in_atom == 'S': return "Bioisosteria (O -> S)"
@@ -286,9 +263,7 @@ def classify_transformation_action_based(smiles_start, smiles_end):
                 
             return f"Sostituzione ({out_atom} -> {in_atom})"
 
-    # CASO 4: Anomalie o Frammentazione
-    # L'environment ha un check "if len(Chem.GetMolFrags(rw_mol)) > 1: return None"
-    # quindi teoricamente non dovremmo vedere rimozioni pure, ma gestiamo il caso.
+    # Last case in which we detect anomalies
     if removed and not added:
         return f"Rimozione Anomala (-{removed[0]})"
 
@@ -296,10 +271,10 @@ def classify_transformation_action_based(smiles_start, smiles_end):
 
 def analyze_actions_distribution(stats):
     
-    # Raccogli tutte le coppie
+   
     all_pairs = []
     
-    # Uniamo le liste di successo
+    #take all list of success molecule (TOX->NOTOX AND NOTOX->TOX)
     for start, end, sim in stats.get('success_flip_fromtox_to_notox', []):
         all_pairs.append((start, end))
     for start, end, sim in stats.get('success_flip_from_notox_totox', []):
@@ -309,7 +284,7 @@ def analyze_actions_distribution(stats):
         print("Nessun dato da analizzare.")
         return
 
-    # Classifica
+    
     categories = [classify_transformation_action_based(s, e) for s, e in all_pairs]
     counts = Counter(categories)
     
@@ -317,33 +292,24 @@ def analyze_actions_distribution(stats):
     df = pd.DataFrame.from_dict(counts, orient='index', columns=['Count']).reset_index()
     df = df.rename(columns={'index': 'Azione Rilevata'}).sort_values('Count', ascending=False)
     
-    plt.figure(figsize=(11, 7)) # Aumento leggermente la dimensione per leggere meglio le label
-    sns.set_style("whitegrid") # Aggiunge una griglia leggera di sfondo per facilitare la lettura
+    plt.figure(figsize=(11, 7)) 
+    sns.set_style("whitegrid")
     
-    # 1. CAMBIO PALETTE: 
-    # 'viridis' = Gradiente luminoso (Giallo/Verde/Viola)
-    # 'Set2' = Colori pastello distinti
-    # 'Spectral' = Arcobaleno
+    
     ax = sns.barplot(data=df, y='Azione Rilevata', x='Count', palette='Set2', orient='h')
     
-    # 2. AGGIUNTA VALORI SULLE BARRE
-    # Iteriamo sui "container" (i gruppi di barre) per aggiungere l'etichetta
+    
     for container in ax.containers:
-        ax.bar_label(container, 
-                     padding=5,       # Spazio tra la fine della barra e il numero
-                     fontsize=11,     # Grandezza del font
-                     fmt='%d',        # Formato intero (niente virgole)
-                     fontweight='bold') # Opzionale: Grassetto
+        ax.bar_label(container,padding=5,fontsize=11,fmt='%d',fontweight='bold') 
 
     plt.title("Quali azioni sceglie l'agente per il Flip?", fontsize=16)
     plt.xlabel("Numero di Occorrenze", fontsize=12)
-    plt.ylabel("") # Rimuovo l'etichetta Y ridondante
+    plt.ylabel("")
     
-    plt.tight_layout() # Evita che le etichette lunghe vengano tagliate
+    plt.tight_layout() 
     plt.show()
     
     return df
-
 
 
 #import SA_SCORE
@@ -365,41 +331,35 @@ def calculate_properties(smiles):
     
     props = {}
     
-    # 1. QED (Drug-likeness) - Range [0, 1] (Alto è meglio)
+    #QED (Drug-likeness) - Range [0, 1]
     props['QED'] = QED.qed(mol)
     
-    # 2. LogP (Lipofilia)
+    #LogP (Lipofilia)
     props['LogP'] = Crippen.MolLogP(mol)
     
-    # 3. TPSA (Topological Polar Surface Area)
-    props['TPSA'] = Descriptors.TPSA(mol)
+    # MW (Molecular Weight)
+    props['MW'] = Descriptors.MolWt(mol)
     
-    # 4. SA Score (Synthesizability) - Range [1, 10] (Basso è meglio/più facile)
+    #SA Score (Synthesizability) - Range [1, 10]
     if HAS_SASCORE:
         try:
             props['SA_Score'] = sascorer.calculateScore(mol)
         except:
             props['SA_Score'] = np.nan
-    
-    #.5 MW (Molecular Weight)
-    props['MW'] = Descriptors.MolWt(mol)
-    
+
     return props
 
 
 def analyze_property_preservation(stats):
-    """
-    Analizza se le proprietà chimiche (QED, SA, LogP, MW) sono preservate 
-    durante la trasformazione.
-    """
+   
     data = []
     
-    # Raccogli tutte le coppie di successo
     lists_to_check = [
         ('Tox->Safe', stats.get('success_flip_fromtox_to_notox', [])),
         ('Safe->Tox', stats.get('success_flip_from_notox_totox', []))
     ]
     
+    #Compute the properties [QED,LOGP,MW,SA_SCORES]
     for direction, pair_list in lists_to_check:
         for start, end, sim in pair_list:
             p_start = calculate_properties(start)
@@ -438,29 +398,28 @@ def analyze_property_preservation(stats):
 
     df = pd.DataFrame(data)
 
-    # --- PLOTTING ---
-    # Setup: 2 o 3 colonne a seconda se abbiamo SA Score
+    #PLOTTING 
     cols = 4 if HAS_SASCORE else 2
     fig, axes = plt.subplots(1, cols, figsize=(6*cols, 6))
     if cols == 1: axes = [axes] # Gestione singolo asse
     
     sns.set_style("whitegrid")
 
-    # Funzione helper per disegnare diagonale e scatter
+    # Funzione helper to draw diagonal
     def plot_diagonal_scatter(ax, x_col, y_col, title, limit_range=None):
         # Scatter plot
         sns.scatterplot(data=df, x=x_col, y=y_col, hue='Direction', 
                         style='Direction', alpha=0.7, ax=ax, palette='deep')
         
-        # Diagonale (Identity Line x=y)
+        # Diagonal(Identity Line x=y)
         min_val = min(df[x_col].min(), df[y_col].min())
         max_val = max(df[x_col].max(), df[y_col].max())
         
-        # Buffer per estetica
+       
         buff = (max_val - min_val) * 0.05
         lims = [min_val - buff, max_val + buff]
         
-        if limit_range: lims = limit_range # Forza range (es. 0-1 per QED)
+        if limit_range: lims = limit_range 
             
         ax.plot(lims, lims, ls="--", c=".3", label="Identità (Nessun Cambio)")
         ax.set_xlim(lims)
@@ -470,10 +429,10 @@ def analyze_property_preservation(stats):
         ax.set_ylabel("Modificata (End)", fontsize=12)
         ax.legend(loc='lower right')
 
-    #  QED PLOT
+    #QED PLOT
     plot_diagonal_scatter(axes[0], 'QED_Start', 'QED_End', "QED (Drug-likeness)\nPreservation", limit_range=[0,1])
     
-    #  LogP PLOT
+    #LogP PLOT
     plot_diagonal_scatter(axes[1], 'LogP_Start', 'LogP_End', "LogP (Lipophilicity)\nPreservation")
     
     
@@ -489,24 +448,19 @@ def analyze_property_preservation(stats):
     plt.tight_layout()
     plt.show()
     
-    # --- REPORT STATISTICO ---
-    print("\n--- ANALISI PROPRIETÀ DRUG-LIKE ---")
+    # Statistical report
+    print("\n--- Properties Analysis DRUG-LIKE ---")
     print(f"Totale transizioni analizzate: {len(df)}")
     
-    # Calcoliamo quanti 'peggiorano' significativamente (> 0.1 di differenza)
+    #WORSENED QED for Molecules after toxicity flip
     worsened_qed = len(df[df['QED_End'] < df['QED_Start'] - 0.1])
     print(f"Molecole con crollo QED (>0.1): {worsened_qed} / {len(df)} ({worsened_qed/len(df):.1%})")
     
     if HAS_SASCORE:
-        # SA Score: Se aumenta, diventa più difficile (peggio)
+        #SA Score
         harder_synth = len(df[df['SA_End'] > df['SA_Start'] + 1.0])
         print(f"Molecole diventate difficili da sintetizzare (Delta SA > 1.0): {harder_synth} ({harder_synth/len(df):.1%})")
 
-    # --- ANALISI PROPRIETÀ DRUG-LIKE ---
-    #Totale transizioni analizzate: 332
-    #Molecole con crollo QED (>0.1): 49 / 332 (14.8%)
-    #Molecole diventate difficili da sintetizzare (Delta SA > 1.0): 103 (31.0%)
-    
 
 def get_murcko_scaffold(smiles):
     "Estrae lo scaffold di Murcko"
@@ -520,9 +474,7 @@ def get_murcko_scaffold(smiles):
         return None
        
 def analyze_scaffold_preservation(stats):
-    """
-    Confronta gli scaffold prima e dopo la modifica.
-    """
+    
     data = []
     pairs = stats.get('success_flip_fromtox_to_notox', []) + \
             stats.get('success_flip_from_notox_totox', [])
@@ -537,10 +489,10 @@ def analyze_scaffold_preservation(stats):
         
         if scaf_start is not None and scaf_end is not None:
             
-            # Confronto stringhe SMILES degli scaffold
+            #SMILES of the scaffold
             is_preserved = (scaf_start == scaf_end)
             
-            # Categorizzazione dettagliata
+            
             if is_preserved:
                 change_type = "Side Chain Modification"
             else:
@@ -570,7 +522,7 @@ def analyze_scaffold_preservation(stats):
     plt.figure(figsize=(10, 6))
     sns.set_style("whitegrid")
     
-    # Ordiniamo per frequenza
+    #Plot in frequency order 
     order = df['Type'].value_counts().index
     
     ax = sns.countplot(data=df, y='Type', order=order, palette='Set2', orient='h')
@@ -585,7 +537,7 @@ def analyze_scaffold_preservation(stats):
     plt.tight_layout()
     plt.show()
     
-    # --- REPORT TESTUALE ---
+    # --- REPOR ---
     n_total = len(df)
     n_preserved = df['Preserved'].sum()
     
@@ -594,10 +546,6 @@ def analyze_scaffold_preservation(stats):
     print(f"Totale Modifiche: {n_total}")
     print(f"Side Chain Mods (Scaffold Preservato): {n_preserved} ({n_preserved/n_total:.1%})")
     print(f"Core Mods (Scaffold Modificato):       {n_total - n_preserved} ({(n_total - n_preserved)/n_total:.1%})")
-    
-    #--- SCAFFOLD ANALYSIS REPORT ---
-    #Totale Modifiche: 332
-    #Side Chain Mods (Scaffold Preservato): 237 (71.4%)
-    #Core Mods (Scaffold Modificato):       95 (28.6%)
+
     
     return df
