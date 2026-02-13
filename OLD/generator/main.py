@@ -67,8 +67,8 @@ def main():
     all_smiles=tox21_df["smiles"].values
     print(f"DEBUG: Caricate {len(all_smiles)} righe dal CSV.")
     
-    train_smiles,temp_smiles = train_test_split(all_smiles, train_size=0.7, test_size=0.3, random_state=RANDOM_SEED)
-    valid_smiles, test_smiles = train_test_split(temp_smiles,test_size=0.5, random_state=RANDOM_SEED)
+    train_smiles,test_smiles = train_test_split(all_smiles, train_size=0.7, test_size=0.3, random_state=RANDOM_SEED)
+    #valid_smiles, test_smiles = train_test_split(temp_smiles,test_size=0.5, random_state=RANDOM_SEED)
     
     print(f"Totale molecole: {len(all_smiles)}")
     print(f"Train Set (per RL Training): {len(train_smiles)} molecole")
@@ -78,12 +78,12 @@ def main():
     #start_smiles = "c1ccccc1" 
 
     print(f"Initializing Environment for: {train_smiles}")
-    env = MoleculeEnv(gnn_model=gnn_model,threshold=0.4,max_steps=MAX_STEPS,device=DEVICE)
+    env = MoleculeEnv(gnn_model=gnn_model,threshold=0.4,max_steps=20,device=DEVICE)
 
     path="best_agent_checkpoint.pth"
     # --- TRAINING LOOP ---
     print(f"Starting Training for {EPOCHS_AGENT} episodes...")
-    "trained_agent = train_agent(env,train_smiles_list=train_smiles, episodes=EPOCHS_AGENT,batch_size=BATCH_SIZE_RL_AGENT, lr=LR_GENERATOR, device=DEVICE,path = path)"
+    trained_agent = train_agent(env,train_smiles_list=train_smiles, episodes=EPOCHS_AGENT,batch_size=BATCH_SIZE_RL_AGENT, lr=LR_GENERATOR, device=DEVICE,path = path)
 
     # --- SALVATAGGIO ---
     #save_path = "dueling_dqn_agent_multitask.pth"
