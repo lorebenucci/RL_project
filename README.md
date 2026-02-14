@@ -93,3 +93,18 @@ pip install -r requirements.txt
 
 ---
 
+
+## 📌 References
+
+**Molecular Generation with RL:**
+- D. Numeroso and D. Bacciu, "MEG: Generating Molecular Counterfactual Explanations for Deep Graph Networks," in 2021 International Joint Conference on Neural Networks (IJCNN), Shenzhen, China, 2021, pp. 1-8.
+- M. Goel, S. Raghunathan, S. Laghuvarapu, and U. D. Priyakumar, "MoleGuLAR: Molecule Generation Using Reinforcement Learning with Alternating Rewards," J. Chem. Inf. Model., vol. 61, no. 12, pp. 5815–5826, Dec. 2021.
+- Z. Zhou, S. Kearnes, L. Li, R. N. Zare, and P. Riley, "Optimization of Molecules via Deep Reinforcement Learning," Sci. Rep., vol. 9, no. 1, Art. no. 10752, 2019.
+    
+**Explainable AI and CounterFactual theory:**
+- RexYing, Dylan Bourgeois, Jiaxuan You, Marinka Zitnik, and Jure Leskovec. Gnnexplainer: Generating explanations for graph neural networks, 2019.
+- Sandra Wachter, Brent Mittelstadt, and Chris Russell. Counterfactual explanations without opening the black box: Automated decisions and the gdpr, 2018.
+    
+**Deep Graph Networks:**
+- A. Micheli. Neural network for graphs: A contextual constructive approach. IEEE Transactions on Neural Networks, 20(3):498–511, 2009.
+- Justin Gilmer, Samuel S. Schoenholz, Patrick F. Riley, Oriol Vinyals, and George E. Dahl. Neural message passing for quantum chemistry. volume 70 of Proceedings of Machine Learning Research, pages 1263– 1272, International Convention Centre, Sydney, Australia, 06–11 Aug 2017. PMLR.

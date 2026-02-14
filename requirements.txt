@@ -2,25 +2,20 @@
 # pip install torch-geometric
 # pip install -r requirements.txt
 
-numpy
-pandas
-matplotlib
-seaborn
-scikit-learn
-
 kagglehub
+itables
+matplotlib
+numpy
+optuna
+pandas
 plotly
 py3Dmol
-itables
-
+rdkit
 rdkit-pypi
-
+scikit-learn
+seaborn
 torch
-torchvision
-torchaudio
 torch-geometric
-
-optuna
+torchaudio
+torchvision
 tqdm
-
-
