@@ -47,7 +47,7 @@ def train_agent(p_model,t_model, env, smiles_list, batch_size=64, lr=1e-4,gamma=
     target_net.load_state_dict(policy_net.state_dict())
     
     optimizer = optim.Adam(policy_net.parameters(), lr=lr)
-    memory = WeightedReplayBuffer(10000)
+    memory = WeightedReplayBuffer(20000)
     
     epsilon, epsilon_decay, tau = 1.0, 0.996, 0.005 
     best_avg_reward = -float('inf')

@@ -74,7 +74,8 @@ def train_one_epoch(model,train_loader,scheduler,criterion,optimizer,isprogress)
     for batch in progress_bar:
         batch = batch.to(DEVICE)
         optimizer.zero_grad()
-        out = model(batch.x, batch.edge_index, batch.edge_attr,batch.batch, batch.global_feat)
+        out,_ = model(batch.x, batch.edge_index, batch.edge_attr,batch.batch, batch.global_feat)
+        
         
         
         valid_loss,is_labeled=apply_masks(batch,out,criterion)

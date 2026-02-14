@@ -16,7 +16,7 @@ def run_validation_epoch(model,val_loader,criterion):
         for batch in val_loader:
             batch=batch = batch.to(DEVICE)
             
-            out=model(batch.x, batch.edge_index, batch.edge_attr, batch.batch, batch.global_feat)
+            out,_=model(batch.x, batch.edge_index, batch.edge_attr, batch.batch, batch.global_feat)
             loss,is_labeled=apply_masks(batch,out,criterion)
             
             loss = loss.sum() / is_labeled.sum()
@@ -42,7 +42,7 @@ def compute_val_roc_auc(model,loader,isprocess=False):
         for batch in progressBar:
             batch = batch.to(DEVICE)
             
-            logits = model(batch.x, batch.edge_index,batch.edge_attr, batch.batch, batch.global_feat)
+            logits,_ = model(batch.x, batch.edge_index,batch.edge_attr, batch.batch, batch.global_feat)
             probs = torch.sigmoid(logits)
             all_probs.append(probs.cpu())
             all_targets.append(batch.y.cpu())
